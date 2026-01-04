@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web BIOS Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Main Screen Container -->
+    <div id="bios-screen" class="crt-screen">
+        
+        <!-- Phase 1: POST Sequence (Initially visible) -->
+        <div id="post-sequence">
+            <div class="header">
+                <div class="vendor-logo">PhoenixBIOS 4.0 Release 6.0</div>
+                <div class="version">Version 1.00.00</div>
+            </div>
+            <div id="post-messages"></div>
+            <div id="memory-counter">Memory Test: 0 KB OK</div>
+            <div class="footer">
+                <div>Copyright © 2026 Web BIOS Simulator</div>
+                <div>Press <kbd>DEL</kbd> to enter SETUP, <kbd>F12</kbd> for Boot Menu</div>
+            </div>
+        </div>
+        
+        <!-- Phase 2: Main BIOS Menu (Hidden initially) -->
+        <div id="bios-menu" class="hidden">
+            <div class="menu-header">
+                <h1>CMOS SETUP UTILITY</h1>
+                <div class="subtitle">AWARD SOFTWARE, INC.</div>
+            </div>
+            <!-- Menu items will be injected by JavaScript -->
+            <div class="menu-items"></div>
+            <div class="menu-footer">
+                <p>↑↓ : Select Item   F10: Save & Exit   ESC: Exit</p>
+            </div>
+        </div>
+        
+        <!-- Hidden Audio for Beeps -->
+        <audio id="post-beep" preload="auto">
+            <source src="assets/sounds/beep.mp3" type="audio/mpeg">
+        </audio>
+    </div>
+
+    <script src="post.js"></script>
+    <script src="bios.js"></script>
+<!-- Exit Confirmation Modal (Initially Hidden) -->
+<div id="global-exit-modal" style="display: none;"></div>
+
+<!-- Toast Container -->
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+</body>
+</html>
