@@ -553,3 +553,191 @@ kbd {
         height: 100px;
     }
 }
+
+/* ===== BOOT MANAGER STYLES ===== */
+
+.boot-device-item {
+    background: rgba(20, 30, 20, 0.6);
+    border: 1px solid #333;
+    margin: 8px 0;
+    padding: 12px 15px;
+    cursor: move;
+    transition: all 0.2s;
+    position: relative;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.boot-device-item:hover {
+    background: rgba(30, 40, 30, 0.8);
+    border-color: #555;
+}
+
+.boot-device-item.selected {
+    background: rgba(0, 60, 0, 0.7);
+    border-color: #90ee90;
+    box-shadow: 0 0 10px rgba(144, 238, 144, 0.2);
+}
+
+.boot-device-item.dragging {
+    opacity: 0.5;
+}
+
+.boot-device-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.boot-device-icon {
+    font-size: 1.8em;
+    width: 40px;
+    text-align: center;
+}
+
+.boot-device-info {
+    flex-grow: 1;
+}
+
+.boot-device-name {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 3px;
+}
+
+.boot-device-type {
+    color: #aaa;
+    font-size: 0.85em;
+}
+
+.boot-device-order {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.order-number {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    background: #000a14;
+    border: 2px solid #90ee90;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    color: #90ee90;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.boot-device-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.boot-btn {
+    background: rgba(144, 238, 144, 0.1);
+    border: 1px solid #333;
+    color: #90ee90;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9em;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.boot-btn:hover {
+    background: rgba(144, 238, 144, 0.3);
+    border-color: #90ee90;
+}
+
+.boot-btn:active {
+    transform: scale(0.95);
+}
+
+.boot-primary-badge {
+    position: absolute;
+    top: -8px;
+    right: 15px;
+    background: #90ee90;
+    color: #000;
+    font-size: 0.7em;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* BIOS Toggle Switch */
+.bios-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.bios-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.bios-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #222;
+    border: 1px solid #333;
+    transition: .3s;
+    border-radius: 3px;
+}
+
+.bios-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #90ee90;
+    transition: .3s;
+    border-radius: 2px;
+}
+
+input:checked + .bios-slider {
+    background-color: rgba(144, 238, 144, 0.2);
+    border-color: #90ee90;
+}
+
+input:checked + .bios-slider:before {
+    transform: translateX(26px);
+}
+
+/* Boot delay select */
+select {
+    background: #000a14;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 5px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.95em;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+}
+
+select:focus {
+    border-color: #90ee90;
+}
+
+select option {
+    background: #000a14;
+    color: #fff;
+}

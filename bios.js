@@ -12,6 +12,7 @@ class BIOSMenu {
             { id: 'load-bios-defaults', title: "LOAD BIOS DEFAULTS", desc: "Load Default Settings", action: 'loadDefaults' },
             { id: 'load-setup-defaults', title: "LOAD SETUP DEFAULTS", desc: "Load Optimized Defaults", action: 'loadOptimized' },
             { id: 'peripherals', title: "INTEGRATED PERIPHERALS", desc: "Onboard Devices" },
+            { id: 'boot-manager', title: "BOOT MANAGER", desc: "Configure Boot Device Order" },
             { id: 'hardware-monitor', title: "HARDWARE MONITOR", desc: "Temperature & Voltage" },
             { id: 'supervisor-password', title: "SUPERVISOR PASSWORD", desc: "Set Administrator Password", action: 'setPassword' },
             { id: 'user-password', title: "USER PASSWORD", desc: "Set User Password", action: 'setPassword' },
@@ -107,10 +108,384 @@ class BIOSMenu {
     createAllSettingsPages() {
         // Create Standard CMOS Setup page
         this.createStandardCMOSPage();
+        this.createBootManagerPage();
         
         // Create Hardware Monitor Page
         this.createHardwareMonitorPage();
+         
+        createBootManagerPage() {
+    const page = document.createElement('div');
+    page.className = 'settings-page';
+    page.id = 'page-boot-manager';
+    
+    // Current boot order from state
+    const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+    
+    page.innerHTML = `
+        <div class="settings-header">BOOT MANAGER</div>
         
+        <div class="settings-group">
+            <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                BOOT DEVICE PRIORITY
+            </h3>
+            <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9em;">
+                Drag devices to reorder boot sequence. System boots from top to bottom.
+            </p>
+            
+            <div id="boot-devices-list" style="min-height: 200px;">
+                <!-- Devices will be injected here -->
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 12px; height: 12px; background: #90ee90; border-radius: 2px;"></div>
+                    <span style="color: #90ee90;">Current Boot Device:</span>
+                    <span style="color: #fff; font-weight: bold;" id="current-boot-device">${bootDevices[0]}</span>
+                </div>
+                <div style="margin-top: 10px; color: #aaa; font-size: 0.9em;">
+                    System will attempt to boot from <strong>${bootDevices[0]}</strong> first.
+                    ${bootDevices.length > 1 ? `If unavailable, will try ${bootDevices[1]}.` : ''}
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-group">
+            <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                BOOT OPTIONS
+            </h3>
+            
+            <div class="setting-row">
+                <span class="setting-label">Quick Boot:</span>
+                <span class="setting-value">
+                    <label class="bios-switch">
+                        <input type="checkbox" id="quick-boot-toggle" ${this.state.quickBoot ? 'checked' : ''}>
+                        <span class="bios-slider"></span>
+                    </label>
+                    <span style="margin-left: 10px; color: ${this.state.quickBoot ? '#90ee90' : '#aaa'}">
+                        ${this.state.quickBoot ? 'Enabled' : 'Disabled'}
+                    </span>
+                </span>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Boot NumLock:</span>
+                <span class="setting-value">
+                    <label class="bios-switch">
+                        <input type="checkbox" id="numlock-toggle" ${this.state.bootNumLock ? 'checked' : ''}>
+                        <span class="bios-slider"></span>
+                    </label>
+                    <span style="margin-left: 10px; color: ${this.state.bootNumLock ? '#90ee90' : '#aaa'}">
+                        ${this.state.bootNumLock ? 'On' : 'Off'}
+                    </span>
+                </span>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Boot Delay:</span>
+                <span class="setting-value">
+                    <select id="boot-delay-select" style="background: #000a14; color: #fff; border: 1px solid #333; padding: 3px 8px;">
+                        <option value="0">0 sec</option>
+                        <option value="3">3 sec</option>
+                        <option value="5">5 sec</option>
+                        <option value="10">10 sec</option>
+                    </select>
+                </span>
+            </div>
+        </div>
+        
+        <div class="help-footer">
+            Drag to reorder   ↑↓ : Move selection   Space: Toggle   Enter: Select   F5: Reset to defaults
+        </div>
+    `;
+    
+    this.settingsContainer.appendChild(page);
+    
+    // Initialize the boot devices list AFTER adding to DOM
+    setTimeout(() => {
+        this.renderBootDevicesList();
+        this.setupBootManagerEvents();
+    }, 10);
+}
+
+renderBootDevicesList() {
+    const container = document.getElementById('boot-devices-list');
+    if (!container) return;
+    
+    const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+    
+    container.innerHTML = '';
+    
+    bootDevices.forEach((device, index) => {
+        const deviceElement = document.createElement('div');
+        deviceElement.className = 'boot-device-item';
+        deviceElement.dataset.index = index;
+        deviceElement.dataset.device = device;
+        deviceElement.innerHTML = `
+            <div class="boot-device-content">
+                <div class="boot-device-icon">
+                    ${this.getBootDeviceIcon(device)}
+                </div>
+                <div class="boot-device-info">
+                    <div class="boot-device-name">${device}</div>
+                    <div class="boot-device-type">${this.getBootDeviceType(device)}</div>
+                </div>
+                <div class="boot-device-order">
+                    <span class="order-number">${index + 1}</span>
+                    <div class="boot-device-controls">
+                        <button class="boot-btn up-btn" title="Move up">↑</button>
+                        <button class="boot-btn down-btn" title="Move down">↓</button>
+                    </div>
+                </div>
+            </div>
+            ${index === 0 ? '<div class="boot-primary-badge">PRIMARY</div>' : ''}
+        `;
+        
+        container.appendChild(deviceElement);
+    });
+    
+    // Update current boot device display
+    document.getElementById('current-boot-device').textContent = bootDevices[0];
+}
+
+getBootDeviceIcon(device) {
+    const icons = {
+        'Hard Disk': '💾',
+        'CD-ROM': '💿',
+        'Floppy': '📼',
+        'Network': '🌐',
+        'USB': '🔌',
+        'SSD': '⚡'
+    };
+    return icons[device] || '💻';
+}
+
+getBootDeviceType(device) {
+    const types = {
+        'Hard Disk': 'ATA/IDE Drive',
+        'CD-ROM': 'Optical Drive',
+        'Floppy': 'Floppy Disk Drive',
+        'Network': 'PXE Network Boot',
+        'USB': 'USB Mass Storage',
+        'SSD': 'Solid State Drive'
+    };
+    return types[device] || 'Boot Device';
+}
+
+setupBootManagerEvents() {
+    const container = document.getElementById('boot-devices-list');
+    if (!container) return;
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (!document.getElementById('page-boot-manager').classList.contains('active')) return;
+        
+        const selected = container.querySelector('.boot-device-item.selected');
+        let currentIndex = selected ? parseInt(selected.dataset.index) : 0;
+        
+        switch(e.key) {
+            case 'ArrowUp':
+                e.preventDefault();
+                if (currentIndex > 0) {
+                    this.moveBootDevice(currentIndex, currentIndex - 1);
+                }
+                break;
+                
+            case 'ArrowDown':
+                e.preventDefault();
+                const devices = this.state.bootOrder;
+                if (currentIndex < devices.length - 1) {
+                    this.moveBootDevice(currentIndex, currentIndex + 1);
+                }
+                break;
+                
+            case ' ':
+                e.preventDefault();
+                if (selected) {
+                    this.toggleBootDevice(parseInt(selected.dataset.index));
+                }
+                break;
+                
+            case 'F5':
+                e.preventDefault();
+                this.resetBootOrder();
+                break;
+        }
+    });
+    
+    // Click to select
+    container.addEventListener('click', (e) => {
+        const deviceItem = e.target.closest('.boot-device-item');
+        if (deviceItem) {
+            // Remove previous selection
+            container.querySelectorAll('.boot-device-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            // Select current
+            deviceItem.classList.add('selected');
+            
+            // Handle button clicks
+            const upBtn = e.target.closest('.up-btn');
+            const downBtn = e.target.closest('.down-btn');
+            
+            if (upBtn) {
+                const index = parseInt(deviceItem.dataset.index);
+                if (index > 0) this.moveBootDevice(index, index - 1);
+            }
+            
+            if (downBtn) {
+                const index = parseInt(deviceItem.dataset.index);
+                const devices = this.state.bootOrder;
+                if (index < devices.length - 1) this.moveBootDevice(index, index + 1);
+            }
+        }
+    });
+    
+    // Drag and drop
+    let draggedItem = null;
+    
+    container.addEventListener('dragstart', (e) => {
+        draggedItem = e.target.closest('.boot-device-item');
+        if (draggedItem) {
+            e.dataTransfer.setData('text/plain', draggedItem.dataset.index);
+            draggedItem.style.opacity = '0.5';
+        }
+    });
+    
+    container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const deviceItem = e.target.closest('.boot-device-item');
+        if (deviceItem && draggedItem && deviceItem !== draggedItem) {
+            const rect = deviceItem.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            
+            if (e.clientY < midpoint) {
+                deviceItem.style.borderTop = '2px solid #90ee90';
+                deviceItem.style.borderBottom = 'none';
+            } else {
+                deviceItem.style.borderBottom = '2px solid #90ee90';
+                deviceItem.style.borderTop = 'none';
+            }
+        }
+    });
+    
+    container.addEventListener('dragleave', (e) => {
+        const deviceItem = e.target.closest('.boot-device-item');
+        if (deviceItem) {
+            deviceItem.style.borderTop = 'none';
+            deviceItem.style.borderBottom = 'none';
+        }
+    });
+    
+    container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const deviceItem = e.target.closest('.boot-device-item');
+        
+        if (deviceItem && draggedItem && deviceItem !== draggedItem) {
+            const fromIndex = parseInt(draggedItem.dataset.index);
+            const toIndex = parseInt(deviceItem.dataset.index);
+            
+            const rect = deviceItem.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            const finalIndex = e.clientY < midpoint ? toIndex : toIndex + 1;
+            
+            this.moveBootDevice(fromIndex, finalIndex);
+        }
+        
+        // Reset styles
+        container.querySelectorAll('.boot-device-item').forEach(item => {
+            item.style.borderTop = 'none';
+            item.style.borderBottom = 'none';
+            item.style.opacity = '1';
+        });
+        
+        draggedItem = null;
+    });
+    
+    container.addEventListener('dragend', () => {
+        if (draggedItem) {
+            draggedItem.style.opacity = '1';
+            draggedItem = null;
+        }
+    });
+    
+    // Toggle switches
+    document.getElementById('quick-boot-toggle')?.addEventListener('change', (e) => {
+        this.state.quickBoot = e.target.checked;
+        const status = e.target.nextElementSibling.nextElementSibling;
+        status.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+        status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+        this.saveState();
+        this.showToast(`Quick Boot ${e.target.checked ? 'Enabled' : 'Disabled'}`);
+    });
+    
+    document.getElementById('numlock-toggle')?.addEventListener('change', (e) => {
+        this.state.bootNumLock = e.target.checked;
+        const status = e.target.nextElementSibling.nextElementSibling;
+        status.textContent = e.target.checked ? 'On' : 'Off';
+        status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+        this.saveState();
+        this.showToast(`Boot NumLock ${e.target.checked ? 'On' : 'Off'}`);
+    });
+    
+    document.getElementById('boot-delay-select')?.addEventListener('change', (e) => {
+        this.state.bootDelay = parseInt(e.target.value);
+        this.saveState();
+        this.showToast(`Boot delay set to ${e.target.value} seconds`);
+    });
+}
+
+moveBootDevice(fromIndex, toIndex) {
+    const devices = [...this.state.bootOrder];
+    
+    // Ensure toIndex is within bounds
+    toIndex = Math.max(0, Math.min(toIndex, devices.length - 1));
+    
+    if (fromIndex === toIndex) return;
+    
+    // Remove from old position and insert at new position
+    const [movedItem] = devices.splice(fromIndex, 1);
+    devices.splice(toIndex, 0, movedItem);
+    
+    // Update state
+    this.state.bootOrder = devices;
+    this.saveState();
+    
+    // Re-render list
+    this.renderBootDevicesList();
+    
+    // Play sound
+    this.playNavSound(800, 50);
+    
+    this.showToast(`Boot order updated: ${movedItem} moved to position ${toIndex + 1}`);
+}
+
+toggleBootDevice(index) {
+    // For now, just show a message about enabling/disabling
+    const device = this.state.bootOrder[index];
+    this.showToast(`${device} ${this.isDeviceEnabled(index) ? 'disabled' : 'enabled'}`);
+    this.playNavSound(600, 30);
+}
+
+isDeviceEnabled(index) {
+    // Simplified - in real BIOS you could enable/disable devices
+    return index < 4; // First 4 devices are "enabled"
+}
+
+resetBootOrder() {
+    this.state.bootOrder = ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+    this.state.quickBoot = true;
+    this.state.bootNumLock = true;
+    
+    // Update UI
+    document.getElementById('quick-boot-toggle').checked = true;
+    document.getElementById('numlock-toggle').checked = true;
+    
+    this.saveState();
+    this.renderBootDevicesList();
+    
+    this.showToast('Boot order reset to defaults');
+    this.playNavSound(1000, 100);
+}
         // Create placeholder pages for others
         this.createPlaceholderPage('bios-features', 'BIOS Features Setup');
         this.createPlaceholderPage('chipset', 'Chipset Features Setup');
