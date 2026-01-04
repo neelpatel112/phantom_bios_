@@ -1,8 +1,6 @@
-// bios.js - COMPLETE BIOS Navigation & Hardware Monitor System
-
 class BIOSMenu {
     constructor() {
-        // Menu structure
+        // Menu structure - INCLUDES BOOT MANAGER
         this.menuItems = [
             { id: 'standard-cmos', title: "STANDARD CMOS SETUP", desc: "Date, Time, Hard Disk Type" },
             { id: 'bios-features', title: "BIOS FEATURES SETUP", desc: "Advanced BIOS Options" },
@@ -12,7 +10,7 @@ class BIOSMenu {
             { id: 'load-bios-defaults', title: "LOAD BIOS DEFAULTS", desc: "Load Default Settings", action: 'loadDefaults' },
             { id: 'load-setup-defaults', title: "LOAD SETUP DEFAULTS", desc: "Load Optimized Defaults", action: 'loadOptimized' },
             { id: 'peripherals', title: "INTEGRATED PERIPHERALS", desc: "Onboard Devices" },
-            { id: 'boot-manager', title: "BOOT MANAGER", desc: "Configure Boot Device Order" },
+            { id: 'boot-manager', title: "BOOT MANAGER", desc: "Configure Boot Device Order" }, // NEW!
             { id: 'hardware-monitor', title: "HARDWARE MONITOR", desc: "Temperature & Voltage" },
             { id: 'supervisor-password', title: "SUPERVISOR PASSWORD", desc: "Set Administrator Password", action: 'setPassword' },
             { id: 'user-password', title: "USER PASSWORD", desc: "Set User Password", action: 'setPassword' },
@@ -30,6 +28,7 @@ class BIOSMenu {
             virtualization: false,
             quickBoot: true,
             bootNumLock: true,
+            bootDelay: 0,
             securityLevel: 'None'
         };
 
@@ -106,387 +105,12 @@ class BIOSMenu {
     }
 
     createAllSettingsPages() {
-        // Create Standard CMOS Setup page
+        // Create all pages
         this.createStandardCMOSPage();
-        this.createBootManagerPage();
-        
-        // Create Hardware Monitor Page
         this.createHardwareMonitorPage();
-         
-        createBootManagerPage() {
-    const page = document.createElement('div');
-    page.className = 'settings-page';
-    page.id = 'page-boot-manager';
-    
-    // Current boot order from state
-    const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
-    
-    page.innerHTML = `
-        <div class="settings-header">BOOT MANAGER</div>
+        this.createBootManagerPage(); // NEW BOOT MANAGER!
         
-        <div class="settings-group">
-            <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-                BOOT DEVICE PRIORITY
-            </h3>
-            <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9em;">
-                Drag devices to reorder boot sequence. System boots from top to bottom.
-            </p>
-            
-            <div id="boot-devices-list" style="min-height: 200px;">
-                <!-- Devices will be injected here -->
-            </div>
-            
-            <div style="margin-top: 20px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 12px; height: 12px; background: #90ee90; border-radius: 2px;"></div>
-                    <span style="color: #90ee90;">Current Boot Device:</span>
-                    <span style="color: #fff; font-weight: bold;" id="current-boot-device">${bootDevices[0]}</span>
-                </div>
-                <div style="margin-top: 10px; color: #aaa; font-size: 0.9em;">
-                    System will attempt to boot from <strong>${bootDevices[0]}</strong> first.
-                    ${bootDevices.length > 1 ? `If unavailable, will try ${bootDevices[1]}.` : ''}
-                </div>
-            </div>
-        </div>
-        
-        <div class="settings-group">
-            <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-                BOOT OPTIONS
-            </h3>
-            
-            <div class="setting-row">
-                <span class="setting-label">Quick Boot:</span>
-                <span class="setting-value">
-                    <label class="bios-switch">
-                        <input type="checkbox" id="quick-boot-toggle" ${this.state.quickBoot ? 'checked' : ''}>
-                        <span class="bios-slider"></span>
-                    </label>
-                    <span style="margin-left: 10px; color: ${this.state.quickBoot ? '#90ee90' : '#aaa'}">
-                        ${this.state.quickBoot ? 'Enabled' : 'Disabled'}
-                    </span>
-                </span>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label">Boot NumLock:</span>
-                <span class="setting-value">
-                    <label class="bios-switch">
-                        <input type="checkbox" id="numlock-toggle" ${this.state.bootNumLock ? 'checked' : ''}>
-                        <span class="bios-slider"></span>
-                    </label>
-                    <span style="margin-left: 10px; color: ${this.state.bootNumLock ? '#90ee90' : '#aaa'}">
-                        ${this.state.bootNumLock ? 'On' : 'Off'}
-                    </span>
-                </span>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label">Boot Delay:</span>
-                <span class="setting-value">
-                    <select id="boot-delay-select" style="background: #000a14; color: #fff; border: 1px solid #333; padding: 3px 8px;">
-                        <option value="0">0 sec</option>
-                        <option value="3">3 sec</option>
-                        <option value="5">5 sec</option>
-                        <option value="10">10 sec</option>
-                    </select>
-                </span>
-            </div>
-        </div>
-        
-        <div class="help-footer">
-            Drag to reorder   ↑↓ : Move selection   Space: Toggle   Enter: Select   F5: Reset to defaults
-        </div>
-    `;
-    
-    this.settingsContainer.appendChild(page);
-    
-    // Initialize the boot devices list AFTER adding to DOM
-    setTimeout(() => {
-        this.renderBootDevicesList();
-        this.setupBootManagerEvents();
-    }, 10);
-}
-
-renderBootDevicesList() {
-    const container = document.getElementById('boot-devices-list');
-    if (!container) return;
-    
-    const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
-    
-    container.innerHTML = '';
-    
-    bootDevices.forEach((device, index) => {
-        const deviceElement = document.createElement('div');
-        deviceElement.className = 'boot-device-item';
-        deviceElement.dataset.index = index;
-        deviceElement.dataset.device = device;
-        deviceElement.innerHTML = `
-            <div class="boot-device-content">
-                <div class="boot-device-icon">
-                    ${this.getBootDeviceIcon(device)}
-                </div>
-                <div class="boot-device-info">
-                    <div class="boot-device-name">${device}</div>
-                    <div class="boot-device-type">${this.getBootDeviceType(device)}</div>
-                </div>
-                <div class="boot-device-order">
-                    <span class="order-number">${index + 1}</span>
-                    <div class="boot-device-controls">
-                        <button class="boot-btn up-btn" title="Move up">↑</button>
-                        <button class="boot-btn down-btn" title="Move down">↓</button>
-                    </div>
-                </div>
-            </div>
-            ${index === 0 ? '<div class="boot-primary-badge">PRIMARY</div>' : ''}
-        `;
-        
-        container.appendChild(deviceElement);
-    });
-    
-    // Update current boot device display
-    document.getElementById('current-boot-device').textContent = bootDevices[0];
-}
-
-getBootDeviceIcon(device) {
-    const icons = {
-        'Hard Disk': '💾',
-        'CD-ROM': '💿',
-        'Floppy': '📼',
-        'Network': '🌐',
-        'USB': '🔌',
-        'SSD': '⚡'
-    };
-    return icons[device] || '💻';
-}
-
-getBootDeviceType(device) {
-    const types = {
-        'Hard Disk': 'ATA/IDE Drive',
-        'CD-ROM': 'Optical Drive',
-        'Floppy': 'Floppy Disk Drive',
-        'Network': 'PXE Network Boot',
-        'USB': 'USB Mass Storage',
-        'SSD': 'Solid State Drive'
-    };
-    return types[device] || 'Boot Device';
-}
-
-setupBootManagerEvents() {
-    const container = document.getElementById('boot-devices-list');
-    if (!container) return;
-    
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        if (!document.getElementById('page-boot-manager').classList.contains('active')) return;
-        
-        const selected = container.querySelector('.boot-device-item.selected');
-        let currentIndex = selected ? parseInt(selected.dataset.index) : 0;
-        
-        switch(e.key) {
-            case 'ArrowUp':
-                e.preventDefault();
-                if (currentIndex > 0) {
-                    this.moveBootDevice(currentIndex, currentIndex - 1);
-                }
-                break;
-                
-            case 'ArrowDown':
-                e.preventDefault();
-                const devices = this.state.bootOrder;
-                if (currentIndex < devices.length - 1) {
-                    this.moveBootDevice(currentIndex, currentIndex + 1);
-                }
-                break;
-                
-            case ' ':
-                e.preventDefault();
-                if (selected) {
-                    this.toggleBootDevice(parseInt(selected.dataset.index));
-                }
-                break;
-                
-            case 'F5':
-                e.preventDefault();
-                this.resetBootOrder();
-                break;
-        }
-    });
-    
-    // Click to select
-    container.addEventListener('click', (e) => {
-        const deviceItem = e.target.closest('.boot-device-item');
-        if (deviceItem) {
-            // Remove previous selection
-            container.querySelectorAll('.boot-device-item').forEach(item => {
-                item.classList.remove('selected');
-            });
-            // Select current
-            deviceItem.classList.add('selected');
-            
-            // Handle button clicks
-            const upBtn = e.target.closest('.up-btn');
-            const downBtn = e.target.closest('.down-btn');
-            
-            if (upBtn) {
-                const index = parseInt(deviceItem.dataset.index);
-                if (index > 0) this.moveBootDevice(index, index - 1);
-            }
-            
-            if (downBtn) {
-                const index = parseInt(deviceItem.dataset.index);
-                const devices = this.state.bootOrder;
-                if (index < devices.length - 1) this.moveBootDevice(index, index + 1);
-            }
-        }
-    });
-    
-    // Drag and drop
-    let draggedItem = null;
-    
-    container.addEventListener('dragstart', (e) => {
-        draggedItem = e.target.closest('.boot-device-item');
-        if (draggedItem) {
-            e.dataTransfer.setData('text/plain', draggedItem.dataset.index);
-            draggedItem.style.opacity = '0.5';
-        }
-    });
-    
-    container.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const deviceItem = e.target.closest('.boot-device-item');
-        if (deviceItem && draggedItem && deviceItem !== draggedItem) {
-            const rect = deviceItem.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            
-            if (e.clientY < midpoint) {
-                deviceItem.style.borderTop = '2px solid #90ee90';
-                deviceItem.style.borderBottom = 'none';
-            } else {
-                deviceItem.style.borderBottom = '2px solid #90ee90';
-                deviceItem.style.borderTop = 'none';
-            }
-        }
-    });
-    
-    container.addEventListener('dragleave', (e) => {
-        const deviceItem = e.target.closest('.boot-device-item');
-        if (deviceItem) {
-            deviceItem.style.borderTop = 'none';
-            deviceItem.style.borderBottom = 'none';
-        }
-    });
-    
-    container.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const deviceItem = e.target.closest('.boot-device-item');
-        
-        if (deviceItem && draggedItem && deviceItem !== draggedItem) {
-            const fromIndex = parseInt(draggedItem.dataset.index);
-            const toIndex = parseInt(deviceItem.dataset.index);
-            
-            const rect = deviceItem.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            const finalIndex = e.clientY < midpoint ? toIndex : toIndex + 1;
-            
-            this.moveBootDevice(fromIndex, finalIndex);
-        }
-        
-        // Reset styles
-        container.querySelectorAll('.boot-device-item').forEach(item => {
-            item.style.borderTop = 'none';
-            item.style.borderBottom = 'none';
-            item.style.opacity = '1';
-        });
-        
-        draggedItem = null;
-    });
-    
-    container.addEventListener('dragend', () => {
-        if (draggedItem) {
-            draggedItem.style.opacity = '1';
-            draggedItem = null;
-        }
-    });
-    
-    // Toggle switches
-    document.getElementById('quick-boot-toggle')?.addEventListener('change', (e) => {
-        this.state.quickBoot = e.target.checked;
-        const status = e.target.nextElementSibling.nextElementSibling;
-        status.textContent = e.target.checked ? 'Enabled' : 'Disabled';
-        status.style.color = e.target.checked ? '#90ee90' : '#aaa';
-        this.saveState();
-        this.showToast(`Quick Boot ${e.target.checked ? 'Enabled' : 'Disabled'}`);
-    });
-    
-    document.getElementById('numlock-toggle')?.addEventListener('change', (e) => {
-        this.state.bootNumLock = e.target.checked;
-        const status = e.target.nextElementSibling.nextElementSibling;
-        status.textContent = e.target.checked ? 'On' : 'Off';
-        status.style.color = e.target.checked ? '#90ee90' : '#aaa';
-        this.saveState();
-        this.showToast(`Boot NumLock ${e.target.checked ? 'On' : 'Off'}`);
-    });
-    
-    document.getElementById('boot-delay-select')?.addEventListener('change', (e) => {
-        this.state.bootDelay = parseInt(e.target.value);
-        this.saveState();
-        this.showToast(`Boot delay set to ${e.target.value} seconds`);
-    });
-}
-
-moveBootDevice(fromIndex, toIndex) {
-    const devices = [...this.state.bootOrder];
-    
-    // Ensure toIndex is within bounds
-    toIndex = Math.max(0, Math.min(toIndex, devices.length - 1));
-    
-    if (fromIndex === toIndex) return;
-    
-    // Remove from old position and insert at new position
-    const [movedItem] = devices.splice(fromIndex, 1);
-    devices.splice(toIndex, 0, movedItem);
-    
-    // Update state
-    this.state.bootOrder = devices;
-    this.saveState();
-    
-    // Re-render list
-    this.renderBootDevicesList();
-    
-    // Play sound
-    this.playNavSound(800, 50);
-    
-    this.showToast(`Boot order updated: ${movedItem} moved to position ${toIndex + 1}`);
-}
-
-toggleBootDevice(index) {
-    // For now, just show a message about enabling/disabling
-    const device = this.state.bootOrder[index];
-    this.showToast(`${device} ${this.isDeviceEnabled(index) ? 'disabled' : 'enabled'}`);
-    this.playNavSound(600, 30);
-}
-
-isDeviceEnabled(index) {
-    // Simplified - in real BIOS you could enable/disable devices
-    return index < 4; // First 4 devices are "enabled"
-}
-
-resetBootOrder() {
-    this.state.bootOrder = ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
-    this.state.quickBoot = true;
-    this.state.bootNumLock = true;
-    
-    // Update UI
-    document.getElementById('quick-boot-toggle').checked = true;
-    document.getElementById('numlock-toggle').checked = true;
-    
-    this.saveState();
-    this.renderBootDevicesList();
-    
-    this.showToast('Boot order reset to defaults');
-    this.playNavSound(1000, 100);
-}
-        // Create placeholder pages for others
+        // Create placeholder pages
         this.createPlaceholderPage('bios-features', 'BIOS Features Setup');
         this.createPlaceholderPage('chipset', 'Chipset Features Setup');
         this.createPlaceholderPage('power', 'Power Management Setup');
@@ -542,7 +166,7 @@ resetBootOrder() {
         
         this.settingsContainer.appendChild(page);
         
-        // Add click handlers for editable fields
+        // Add click handlers
         page.querySelector('#date-value').addEventListener('click', () => this.editDate());
         page.querySelector('#time-value').addEventListener('click', () => this.editTime());
     }
@@ -596,7 +220,7 @@ resetBootOrder() {
                     </div>
                 </div>
                 
-                <!-- Right Column: System Info & Charts -->
+                <!-- Right Column -->
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <!-- System Information -->
                     <div class="settings-group">
@@ -620,10 +244,6 @@ resetBootOrder() {
                             <div class="info-row">
                                 <span class="info-label">System Time:</span>
                                 <span class="info-value" id="info-time">${this.formatTime()}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Uptime:</span>
-                                <span class="info-value" id="info-uptime">00:05:23</span>
                             </div>
                         </div>
                     </div>
@@ -656,13 +276,6 @@ resetBootOrder() {
                                     <div class="voltage-bar-fill" id="bar-3v" style="width: 100%"></div>
                                 </div>
                             </div>
-                            <div class="voltage-row">
-                                <span class="voltage-label">VBAT:</span>
-                                <span class="voltage-value" id="voltage-vbat">3.10V</span>
-                                <div class="voltage-bar">
-                                    <div class="voltage-bar-fill" id="bar-vbat" style="width: 100%"></div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     
@@ -682,441 +295,365 @@ resetBootOrder() {
         `;
         
         this.settingsContainer.appendChild(page);
+    }
+
+    // ========== BOOT MANAGER PAGE ==========
+    createBootManagerPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-boot-manager';
         
-        // Initialize hardware monitor when page is opened
-        page.addEventListener('active', () => {
-            if (!this.hardwareMonitor) {
-                this.initHardwareMonitor();
+        const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+        
+        page.innerHTML = `
+            <div class="settings-header">BOOT MANAGER</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    BOOT DEVICE PRIORITY
+                </h3>
+                <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9em;">
+                    Drag devices to reorder boot sequence. System boots from top to bottom.
+                </p>
+                
+                <div id="boot-devices-list" style="min-height: 200px;">
+                    <!-- Devices injected by JavaScript -->
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 12px; height: 12px; background: #90ee90; border-radius: 2px;"></div>
+                        <span style="color: #90ee90;">Current Boot Device:</span>
+                        <span style="color: #fff; font-weight: bold;" id="current-boot-device">${bootDevices[0]}</span>
+                    </div>
+                    <div style="margin-top: 10px; color: #aaa; font-size: 0.9em;">
+                        System will attempt to boot from <strong>${bootDevices[0]}</strong> first.
+                        ${bootDevices.length > 1 ? `If unavailable, will try ${bootDevices[1]}.` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    BOOT OPTIONS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Quick Boot:</span>
+                    <span class="setting-value">
+                        <label class="bios-switch">
+                            <input type="checkbox" id="quick-boot-toggle" ${this.state.quickBoot ? 'checked' : ''}>
+                            <span class="bios-slider"></span>
+                        </label>
+                        <span style="margin-left: 10px; color: ${this.state.quickBoot ? '#90ee90' : '#aaa'}">
+                            ${this.state.quickBoot ? 'Enabled' : 'Disabled'}
+                        </span>
+                    </span>
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Boot NumLock:</span>
+                    <span class="setting-value">
+                        <label class="bios-switch">
+                            <input type="checkbox" id="numlock-toggle" ${this.state.bootNumLock ? 'checked' : ''}>
+                            <span class="bios-slider"></span>
+                        </label>
+                        <span style="margin-left: 10px; color: ${this.state.bootNumLock ? '#90ee90' : '#aaa'}">
+                            ${this.state.bootNumLock ? 'On' : 'Off'}
+                        </span>
+                    </span>
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Boot Delay:</span>
+                    <span class="setting-value">
+                        <select id="boot-delay-select" style="background: #000a14; color: #fff; border: 1px solid #333; padding: 3px 8px;">
+                            <option value="0" ${this.state.bootDelay === 0 ? 'selected' : ''}>0 sec</option>
+                            <option value="3" ${this.state.bootDelay === 3 ? 'selected' : ''}>3 sec</option>
+                            <option value="5" ${this.state.bootDelay === 5 ? 'selected' : ''}>5 sec</option>
+                            <option value="10" ${this.state.bootDelay === 10 ? 'selected' : ''}>10 sec</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                Drag to reorder   ↑↓ : Move selection   Space: Toggle   Enter: Select   F5: Reset to defaults
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Initialize after DOM is ready
+        setTimeout(() => {
+            this.renderBootDevicesList();
+            this.setupBootManagerEvents();
+        }, 10);
+    }
+
+    renderBootDevicesList() {
+        const container = document.getElementById('boot-devices-list');
+        if (!container) return;
+        
+        const bootDevices = this.state.bootOrder;
+        container.innerHTML = '';
+        
+        bootDevices.forEach((device, index) => {
+            const deviceElement = document.createElement('div');
+            deviceElement.className = 'boot-device-item';
+            deviceElement.draggable = true;
+            deviceElement.dataset.index = index;
+            deviceElement.dataset.device = device;
+            deviceElement.innerHTML = `
+                <div class="boot-device-content">
+                    <div class="boot-device-icon">
+                        ${this.getBootDeviceIcon(device)}
+                    </div>
+                    <div class="boot-device-info">
+                        <div class="boot-device-name">${device}</div>
+                        <div class="boot-device-type">${this.getBootDeviceType(device)}</div>
+                    </div>
+                    <div class="boot-device-order">
+                        <span class="order-number">${index + 1}</span>
+                        <div class="boot-device-controls">
+                            <button class="boot-btn up-btn" title="Move up">↑</button>
+                            <button class="boot-btn down-btn" title="Move down">↓</button>
+                        </div>
+                    </div>
+                </div>
+                ${index === 0 ? '<div class="boot-primary-badge">PRIMARY</div>' : ''}
+            `;
+            
+            container.appendChild(deviceElement);
+        });
+        
+        // Update current boot device display
+        document.getElementById('current-boot-device').textContent = bootDevices[0];
+    }
+
+    getBootDeviceIcon(device) {
+        const icons = {
+            'Hard Disk': '💾',
+            'CD-ROM': '💿',
+            'Floppy': '📼',
+            'Network': '🌐',
+            'USB': '🔌',
+            'SSD': '⚡'
+        };
+        return icons[device] || '💻';
+    }
+
+    getBootDeviceType(device) {
+        const types = {
+            'Hard Disk': 'ATA/IDE Drive',
+            'CD-ROM': 'Optical Drive',
+            'Floppy': 'Floppy Disk Drive',
+            'Network': 'PXE Network Boot',
+            'USB': 'USB Mass Storage',
+            'SSD': 'Solid State Drive'
+        };
+        return types[device] || 'Boot Device';
+    }
+
+    setupBootManagerEvents() {
+        const container = document.getElementById('boot-devices-list');
+        if (!container) return;
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!document.getElementById('page-boot-manager')?.classList.contains('active')) return;
+            
+            const selected = container.querySelector('.boot-device-item.selected');
+            let currentIndex = selected ? parseInt(selected.dataset.index) : 0;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (currentIndex > 0) {
+                        this.moveBootDevice(currentIndex, currentIndex - 1);
+                    }
+                    break;
+                    
+                case 'ArrowDown':
+                    e.preventDefault();
+                    const devices = this.state.bootOrder;
+                    if (currentIndex < devices.length - 1) {
+                        this.moveBootDevice(currentIndex, currentIndex + 1);
+                    }
+                    break;
+                    
+                case 'F5':
+                    e.preventDefault();
+                    this.resetBootOrder();
+                    break;
             }
+        });
+        
+        // Click to select
+        container.addEventListener('click', (e) => {
+            const deviceItem = e.target.closest('.boot-device-item');
+            if (deviceItem) {
+                // Remove previous selection
+                container.querySelectorAll('.boot-device-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                // Select current
+                deviceItem.classList.add('selected');
+                
+                // Handle button clicks
+                const upBtn = e.target.closest('.up-btn');
+                const downBtn = e.target.closest('.down-btn');
+                
+                if (upBtn) {
+                    const index = parseInt(deviceItem.dataset.index);
+                    if (index > 0) this.moveBootDevice(index, index - 1);
+                }
+                
+                if (downBtn) {
+                    const index = parseInt(deviceItem.dataset.index);
+                    const devices = this.state.bootOrder;
+                    if (index < devices.length - 1) this.moveBootDevice(index, index + 1);
+                }
+            }
+        });
+        
+        // Drag and drop
+        let draggedItem = null;
+        
+        container.addEventListener('dragstart', (e) => {
+            draggedItem = e.target.closest('.boot-device-item');
+            if (draggedItem) {
+                e.dataTransfer.setData('text/plain', draggedItem.dataset.index);
+                draggedItem.style.opacity = '0.5';
+            }
+        });
+        
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const deviceItem = e.target.closest('.boot-device-item');
+            if (deviceItem && draggedItem && deviceItem !== draggedItem) {
+                const rect = deviceItem.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                
+                if (e.clientY < midpoint) {
+                    deviceItem.style.borderTop = '2px solid #90ee90';
+                    deviceItem.style.borderBottom = 'none';
+                } else {
+                    deviceItem.style.borderBottom = '2px solid #90ee90';
+                    deviceItem.style.borderTop = 'none';
+                }
+            }
+        });
+        
+        container.addEventListener('dragleave', (e) => {
+            const deviceItem = e.target.closest('.boot-device-item');
+            if (deviceItem) {
+                deviceItem.style.borderTop = 'none';
+                deviceItem.style.borderBottom = 'none';
+            }
+        });
+        
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const deviceItem = e.target.closest('.boot-device-item');
+            
+            if (deviceItem && draggedItem && deviceItem !== draggedItem) {
+                const fromIndex = parseInt(draggedItem.dataset.index);
+                const toIndex = parseInt(deviceItem.dataset.index);
+                
+                const rect = deviceItem.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                const finalIndex = e.clientY < midpoint ? toIndex : toIndex + 1;
+                
+                this.moveBootDevice(fromIndex, finalIndex);
+            }
+            
+            // Reset styles
+            container.querySelectorAll('.boot-device-item').forEach(item => {
+                item.style.borderTop = 'none';
+                item.style.borderBottom = 'none';
+                item.style.opacity = '1';
+            });
+            
+            draggedItem = null;
+        });
+        
+        container.addEventListener('dragend', () => {
+            if (draggedItem) {
+                draggedItem.style.opacity = '1';
+                draggedItem = null;
+            }
+        });
+        
+        // Toggle switches
+        document.getElementById('quick-boot-toggle')?.addEventListener('change', (e) => {
+            this.state.quickBoot = e.target.checked;
+            const status = e.target.nextElementSibling.nextElementSibling;
+            status.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+            status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+            this.saveState();
+            this.showToast(`Quick Boot ${e.target.checked ? 'Enabled' : 'Disabled'}`);
+        });
+        
+        document.getElementById('numlock-toggle')?.addEventListener('change', (e) => {
+            this.state.bootNumLock = e.target.checked;
+            const status = e.target.nextElementSibling.nextElementSibling;
+            status.textContent = e.target.checked ? 'On' : 'Off';
+            status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+            this.saveState();
+            this.showToast(`Boot NumLock ${e.target.checked ? 'On' : 'Off'}`);
+        });
+        
+        document.getElementById('boot-delay-select')?.addEventListener('change', (e) => {
+            this.state.bootDelay = parseInt(e.target.value);
+            this.saveState();
+            this.showToast(`Boot delay set to ${e.target.value} seconds`);
         });
     }
 
-    initHardwareMonitor() {
-        this.hardwareMonitor = {
-            state: {
-                cpuTemp: 45,
-                cpuVoltage: 1.2,
-                cpuLoad: 15,
-                fanSpeed: 1200,
-                memoryUsage: 32,
-                gpuTemp: 40,
-                systemVoltage: 12.0,
-                ambientTemp: 25
-            },
-            canvases: {},
-            gauges: {},
-            loadGraph: {
-                data: Array(60).fill(15),
-                colors: ['#90ee90', '#00ff00', '#00aa00']
-            },
-            animationId: null,
-            lastUpdate: Date.now(),
-            
-            init: function() {
-                this.initGauges();
-                this.initLoadGraph();
-                this.startSimulation();
-                this.addEventListeners();
-            },
-            
-            initGauges: function() {
-                const gaugeIds = ['cpu-temp', 'cpu-voltage', 'fan-speed', 'cpu-load'];
-                
-                gaugeIds.forEach(id => {
-                    const canvas = document.getElementById(`gauge-${id}`);
-                    if (canvas) {
-                        this.canvases[id] = canvas;
-                        this.gauges[id] = {
-                            ctx: canvas.getContext('2d'),
-                            value: this.state[id.replace('-', '')] || 0
-                        };
-                        this.drawGauge(id);
-                    }
-                });
-            },
-            
-            drawGauge: function(gaugeId) {
-                const gauge = this.gauges[gaugeId];
-                const ctx = gauge.ctx;
-                const canvas = this.canvases[gaugeId];
-                const width = canvas.width;
-                const height = canvas.height;
-                const centerX = width / 2;
-                const centerY = height / 2;
-                const radius = Math.min(width, height) / 2 - 10;
-                
-                // Clear canvas
-                ctx.clearRect(0, 0, width, height);
-                
-                // Get value and limits
-                const { value, min, max, unit, colors } = this.getGaugeConfig(gaugeId);
-                
-                // Draw background
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(20, 20, 30, 0.8)';
-                ctx.fill();
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Draw active arc
-                const startAngle = -Math.PI * 0.8;
-                const endAngle = startAngle + (Math.PI * 1.6 * ((value - min) / (max - min)));
-                
-                const gradient = ctx.createLinearGradient(0, 0, width, 0);
-                colors.forEach((color, index) => {
-                    gradient.addColorStop(index / (colors.length - 1), color);
-                });
-                
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius - 2, startAngle, endAngle);
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = 8;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-                
-                // Draw tick marks
-                ctx.strokeStyle = '#666';
-                ctx.lineWidth = 1;
-                
-                for (let i = 0; i <= 10; i++) {
-                    const angle = startAngle + (Math.PI * 1.6 * (i / 10));
-                    const x1 = centerX + (radius - 15) * Math.cos(angle);
-                    const y1 = centerY + (radius - 15) * Math.sin(angle);
-                    const x2 = centerX + radius * Math.cos(angle);
-                    const y2 = centerY + radius * Math.sin(angle);
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                }
-                
-                // Draw center indicator
-                const indicatorAngle = startAngle + (Math.PI * 1.6 * ((value - min) / (max - min)));
-                const indicatorLength = radius - 20;
-                const indicatorX = centerX + indicatorLength * Math.cos(indicatorAngle);
-                const indicatorY = centerY + indicatorLength * Math.sin(indicatorAngle);
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(indicatorX, indicatorY);
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Draw center circle
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-            },
-            
-            getGaugeConfig: function(gaugeId) {
-                const configs = {
-                    'cpu-temp': {
-                        value: this.state.cpuTemp,
-                        min: 20,
-                        max: 100,
-                        unit: '°C',
-                        colors: ['#00ff00', '#ffff00', '#ff0000'],
-                        thresholds: [60, 80]
-                    },
-                    'cpu-voltage': {
-                        value: this.state.cpuVoltage,
-                        min: 0.8,
-                        max: 1.5,
-                        unit: 'V',
-                        colors: ['#00ffff', '#0088ff', '#0000ff'],
-                        thresholds: [1.1, 1.3]
-                    },
-                    'fan-speed': {
-                        value: this.state.fanSpeed,
-                        min: 0,
-                        max: 3000,
-                        unit: 'RPM',
-                        colors: ['#00ff00', '#00ff88', '#00ffff'],
-                        thresholds: [1000, 2000]
-                    },
-                    'cpu-load': {
-                        value: this.state.cpuLoad,
-                        min: 0,
-                        max: 100,
-                        unit: '%',
-                        colors: ['#00ff00', '#88ff00', '#ffff00'],
-                        thresholds: [50, 80]
-                    }
-                };
-                
-                return configs[gaugeId];
-            },
-            
-            initLoadGraph: function() {
-                const canvas = document.getElementById('load-graph');
-                if (!canvas) return;
-                
-                this.loadGraph.canvas = canvas;
-                this.loadGraph.ctx = canvas.getContext('2d');
-                this.drawLoadGraph();
-            },
-            
-            drawLoadGraph: function() {
-                const { ctx, canvas, data } = this.loadGraph;
-                const width = canvas.width;
-                const height = canvas.height;
-                
-                // Clear
-                ctx.clearRect(0, 0, width, height);
-                
-                // Draw background
-                ctx.fillStyle = 'rgba(0, 20, 0, 0.3)';
-                ctx.fillRect(0, 0, width, height);
-                
-                // Draw grid lines
-                ctx.strokeStyle = 'rgba(144, 238, 144, 0.1)';
-                ctx.lineWidth = 1;
-                
-                for (let i = 0; i <= 4; i++) {
-                    const y = i * (height / 4);
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(width, y);
-                    ctx.stroke();
-                }
-                
-                // Draw graph line
-                const pointWidth = width / (data.length - 1);
-                
-                ctx.beginPath();
-                ctx.moveTo(0, height - (data[0] / 100 * height));
-                
-                for (let i = 1; i < data.length; i++) {
-                    const x = i * pointWidth;
-                    const y = height - (data[i] / 100 * height);
-                    ctx.lineTo(x, y);
-                }
-                
-                ctx.strokeStyle = '#90ee90';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Fill under graph
-                ctx.lineTo(width, height);
-                ctx.lineTo(0, height);
-                ctx.closePath();
-                
-                const gradient = ctx.createLinearGradient(0, 0, 0, height);
-                gradient.addColorStop(0, 'rgba(144, 238, 144, 0.3)');
-                gradient.addColorStop(1, 'rgba(144, 238, 144, 0)');
-                
-                ctx.fillStyle = gradient;
-                ctx.fill();
-            },
-            
-            startSimulation: function() {
-                this.lastUpdate = Date.now();
-                this.animationId = requestAnimationFrame(() => this.updateSimulation());
-            },
-            
-            updateSimulation: function() {
-                const now = Date.now();
-                const delta = now - this.lastUpdate;
-                
-                if (delta > 100) {
-                    // Simulate fluctuations
-                    this.state.cpuLoad = this.simulateCPU();
-                    this.state.cpuTemp = this.simulateTemp(this.state.cpuLoad);
-                    this.state.fanSpeed = this.simulateFan(this.state.cpuTemp);
-                    this.state.cpuVoltage = 1.2 + (Math.sin(now / 2000) * 0.05);
-                    
-                    // Update displays
-                    this.updateDisplays();
-                    
-                    // Update load graph
-                    this.updateLoadGraph();
-                    
-                    this.lastUpdate = now;
-                }
-                
-                this.animationId = requestAnimationFrame(() => this.updateSimulation());
-            },
-            
-            simulateCPU: function() {
-                const baseLoad = 15;
-                const time = Date.now() / 1000;
-                const spike = Math.random() > 0.95 ? Math.random() * 60 : 0;
-                const periodic = Math.sin(time * 0.5) * 10 + Math.sin(time * 2) * 5;
-                let load = baseLoad + spike + periodic;
-                return Math.max(5, Math.min(load, 95)).toFixed(1);
-            },
-            
-            simulateTemp: function(cpuLoad) {
-                const baseTemp = 35;
-                const loadFactor = cpuLoad / 100;
-                const ambient = 25;
-                let temp = baseTemp + (loadFactor * 40) + ambient;
-                temp += (Math.random() - 0.5) * 2;
-                return Math.max(30, Math.min(temp, 95)).toFixed(1);
-            },
-            
-            simulateFan: function(temp) {
-                const baseSpeed = 800;
-                const tempFactor = (temp - 40) / 40;
-                let speed = baseSpeed + (tempFactor * 1500);
-                speed = Math.max(600, speed);
-                return Math.round(speed / 50) * 50;
-            },
-            
-            updateDisplays: function() {
-                // Update gauge values
-                document.getElementById('value-cpu-temp').textContent = `${this.state.cpuTemp}°C`;
-                document.getElementById('value-cpu-voltage').textContent = `${this.state.cpuVoltage.toFixed(2)}V`;
-                document.getElementById('value-fan-speed').textContent = `${this.state.fanSpeed} RPM`;
-                document.getElementById('value-cpu-load').textContent = `${this.state.cpuLoad}%`;
-                
-                // Update status
-                this.updateStatus('cpu-temp', this.state.cpuTemp, [60, 80]);
-                this.updateStatus('cpu-voltage', this.state.cpuVoltage, [1.1, 1.3]);
-                this.updateStatus('fan-speed', this.state.fanSpeed, [1000, 2000]);
-                this.updateStatus('cpu-load', this.state.cpuLoad, [50, 80]);
-                
-                // Update time
-                document.getElementById('info-time').textContent = new Date().toLocaleTimeString('en-US', { 
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
-                
-                // Update voltage bars
-                this.updateVoltageBars();
-                
-                // Redraw gauges
-                Object.keys(this.gauges).forEach(id => {
-                    this.drawGauge(id);
-                });
-            },
-            
-            updateStatus: function(elementId, value, thresholds) {
-                const element = document.getElementById(`status-${elementId}`);
-                if (!element) return;
-                
-                let status = 'Normal';
-                let color = '#90ee90';
-                
-                if (value >= thresholds[1]) {
-                    status = 'Critical';
-                    color = '#ff4444';
-                } else if (value >= thresholds[0]) {
-                    status = 'Warning';
-                    color = '#ffaa00';
-                }
-                
-                element.textContent = status;
-                element.style.color = color;
-            },
-            
-            updateVoltageBars: function() {
-                const voltages = {
-                    '12v': 12.0 + (Math.random() - 0.5) * 0.2,
-                    '5v': 5.0 + (Math.random() - 0.5) * 0.1,
-                    '3v': 3.3 + (Math.random() - 0.5) * 0.05,
-                    'vbat': 3.1 + (Math.random() - 0.5) * 0.05
-                };
-                
-                Object.entries(voltages).forEach(([id, voltage]) => {
-                    const valueElement = document.getElementById(`voltage-${id}`);
-                    const barElement = document.getElementById(`bar-${id}`);
-                    
-                    if (valueElement) {
-                        valueElement.textContent = `${voltage.toFixed(2)}V`;
-                        const target = id === '12v' ? 12.0 : id === '5v' ? 5.0 : id === '3v' ? 3.3 : 3.1;
-                        const deviation = Math.abs(voltage - target) / target;
-                        
-                        if (deviation > 0.05) {
-                            valueElement.style.color = '#ff4444';
-                        } else if (deviation > 0.02) {
-                            valueElement.style.color = '#ffaa00';
-                        } else {
-                            valueElement.style.color = '#90ee90';
-                        }
-                    }
-                    
-                    if (barElement) {
-                        const percent = (voltage / (id === '12v' ? 13.0 : id === '5v' ? 5.5 : 3.6)) * 100;
-                        barElement.style.width = `${Math.min(100, percent)}%`;
-                    }
-                });
-            },
-            
-            updateLoadGraph: function() {
-                this.loadGraph.data.push(parseFloat(this.state.cpuLoad));
-                if (this.loadGraph.data.length > 60) {
-                    this.loadGraph.data.shift();
-                }
-                this.drawLoadGraph();
-            },
-            
-            addEventListeners: function() {
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'F5' && document.getElementById('page-hardware-monitor').classList.contains('active')) {
-                        e.preventDefault();
-                        this.resetSimulation();
-                    }
-                    
-                    if (e.key === ' ' && document.getElementById('page-hardware-monitor').classList.contains('active')) {
-                        e.preventDefault();
-                        this.startStressTest();
-                    }
-                });
-            },
-            
-            resetSimulation: function() {
-                this.state = {
-                    cpuTemp: 45,
-                    cpuVoltage: 1.2,
-                    cpuLoad: 15,
-                    fanSpeed: 1200,
-                    memoryUsage: 32,
-                    gpuTemp: 40,
-                    systemVoltage: 12.0,
-                    ambientTemp: 25
-                };
-                this.updateDisplays();
-            },
-            
-            startStressTest: function() {
-                const originalLoad = this.state.cpuLoad;
-                const stressInterval = setInterval(() => {
-                    this.state.cpuLoad = Math.min(100, this.state.cpuLoad + 10);
-                    this.state.cpuTemp = Math.min(95, this.state.cpuTemp + 5);
-                    this.state.fanSpeed = Math.min(3000, this.state.fanSpeed + 200);
-                    this.updateDisplays();
-                }, 500);
-                
-                setTimeout(() => {
-                    clearInterval(stressInterval);
-                    const cooldownInterval = setInterval(() => {
-                        this.state.cpuLoad = Math.max(originalLoad, this.state.cpuLoad - 5);
-                        this.state.cpuTemp = Math.max(45, this.state.cpuTemp - 2);
-                        this.state.fanSpeed = Math.max(1200, this.state.fanSpeed - 100);
-                        this.updateDisplays();
-                        
-                        if (this.state.cpuLoad <= originalLoad + 5) {
-                            clearInterval(cooldownInterval);
-                        }
-                    }, 500);
-                }, 10000);
-            },
-            
-            stop: function() {
-                if (this.animationId) {
-                    cancelAnimationFrame(this.animationId);
-                    this.animationId = null;
-                }
-            }
-        };
+    moveBootDevice(fromIndex, toIndex) {
+        const devices = [...this.state.bootOrder];
+        
+        // Ensure toIndex is within bounds
+        toIndex = Math.max(0, Math.min(toIndex, devices.length - 1));
+        
+        if (fromIndex === toIndex) return;
+        
+        // Remove from old position and insert at new position
+        const [movedItem] = devices.splice(fromIndex, 1);
+        devices.splice(toIndex, 0, movedItem);
+        
+        // Update state
+        this.state.bootOrder = devices;
+        this.saveState();
+        
+        // Re-render list
+        this.renderBootDevicesList();
+        
+        // Play sound
+        this.playNavSound(800, 50);
+        
+        this.showToast(`Boot order updated: ${movedItem} moved to position ${toIndex + 1}`);
+    }
+
+    resetBootOrder() {
+        this.state.bootOrder = ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+        this.state.quickBoot = true;
+        this.state.bootNumLock = true;
+        this.state.bootDelay = 0;
+        
+        // Update UI
+        if (document.getElementById('quick-boot-toggle')) {
+            document.getElementById('quick-boot-toggle').checked = true;
+            document.getElementById('numlock-toggle').checked = true;
+            document.getElementById('boot-delay-select').value = '0';
+        }
+        
+        this.saveState();
+        this.renderBootDevicesList();
+        
+        this.showToast('Boot order reset to defaults');
+        this.playNavSound(1000, 100);
     }
 
     createPlaceholderPage(id, title) {
@@ -1277,6 +814,10 @@ resetBootOrder() {
                         e.preventDefault();
                         this.hardwareMonitor.resetSimulation();
                     }
+                    if (this.inSettingsPage && this.currentSettingsPage === 'boot-manager') {
+                        e.preventDefault();
+                        this.resetBootOrder();
+                    }
                     break;
                     
                 case ' ':
@@ -1351,6 +892,12 @@ resetBootOrder() {
                     this.initHardwareMonitor();
                 }
                 this.hardwareMonitor.init();
+            }
+            
+            // Initialize boot manager if needed
+            if (pageId === 'boot-manager') {
+                // Re-render in case state changed
+                this.renderBootDevicesList();
             }
             
             // Stop hardware monitor when leaving its page
@@ -1561,6 +1108,10 @@ resetBootOrder() {
         localStorage.setItem('biosState', JSON.stringify({
             date: this.state.date.toISOString(),
             time: this.state.time.toISOString(),
+            bootOrder: this.state.bootOrder,
+            quickBoot: this.state.quickBoot,
+            bootNumLock: this.state.bootNumLock,
+            bootDelay: this.state.bootDelay,
             securityLevel: this.state.securityLevel
         }));
         
@@ -1574,6 +1125,10 @@ resetBootOrder() {
                 const state = JSON.parse(saved);
                 this.state.date = new Date(state.date);
                 this.state.time = new Date(state.time);
+                this.state.bootOrder = state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+                this.state.quickBoot = state.quickBoot !== undefined ? state.quickBoot : true;
+                this.state.bootNumLock = state.bootNumLock !== undefined ? state.bootNumLock : true;
+                this.state.bootDelay = state.bootDelay || 0;
                 this.state.securityLevel = state.securityLevel || 'None';
             } catch (e) {
                 console.log('Error loading saved state:', e);
@@ -1604,6 +1159,143 @@ resetBootOrder() {
                 toast.parentNode.removeChild(toast);
             }
         }, 2300);
+    }
+
+    // Hardware Monitor methods (simplified version)
+    initHardwareMonitor() {
+        this.hardwareMonitor = {
+            state: {
+                cpuTemp: 45,
+                cpuVoltage: 1.2,
+                cpuLoad: 15,
+                fanSpeed: 1200
+            },
+            canvases: {},
+            gauges: {},
+            animationId: null,
+            
+            init: function() {
+                this.initGauges();
+                this.startSimulation();
+            },
+            
+            initGauges: function() {
+                ['cpu-temp', 'cpu-voltage', 'fan-speed', 'cpu-load'].forEach(id => {
+                    const canvas = document.getElementById(`gauge-${id}`);
+                    if (canvas) {
+                        this.canvases[id] = canvas;
+                        this.gauges[id] = {
+                            ctx: canvas.getContext('2d'),
+                            value: this.state[id.replace('-', '')] || 0
+                        };
+                        this.drawGauge(id);
+                    }
+                });
+                
+                // Initialize load graph
+                this.initLoadGraph();
+            },
+            
+            drawGauge: function(gaugeId) {
+                // Simplified gauge drawing
+                const gauge = this.gauges[gaugeId];
+                if (!gauge) return;
+                
+                const ctx = gauge.ctx;
+                const canvas = this.canvases[gaugeId];
+                const width = canvas.width;
+                const height = canvas.height;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = Math.min(width, height) / 2 - 10;
+                
+                ctx.clearRect(0, 0, width, height);
+                
+                // Draw gauge background
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(20, 20, 30, 0.8)';
+                ctx.fill();
+                
+                // Update display values
+                const value = this.state[gaugeId.replace('-', '')];
+                if (gaugeId === 'cpu-temp') {
+                    document.getElementById('value-cpu-temp').textContent = `${value}°C`;
+                } else if (gaugeId === 'cpu-voltage') {
+                    document.getElementById('value-cpu-voltage').textContent = `${value.toFixed(2)}V`;
+                } else if (gaugeId === 'fan-speed') {
+                    document.getElementById('value-fan-speed').textContent = `${value} RPM`;
+                } else if (gaugeId === 'cpu-load') {
+                    document.getElementById('value-cpu-load').textContent = `${value}%`;
+                }
+            },
+            
+            initLoadGraph: function() {
+                // Simple load graph initialization
+                const canvas = document.getElementById('load-graph');
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'rgba(0, 20, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            },
+            
+            startSimulation: function() {
+                this.animationId = requestAnimationFrame(() => this.updateSimulation());
+            },
+            
+            updateSimulation: function() {
+                // Simulate random fluctuations
+                this.state.cpuLoad = 15 + Math.sin(Date.now() / 2000) * 10 + Math.random() * 5;
+                this.state.cpuTemp = 45 + (this.state.cpuLoad - 15) * 0.3;
+                this.state.fanSpeed = 1200 + (this.state.cpuTemp - 45) * 20;
+                this.state.cpuVoltage = 1.2 + Math.sin(Date.now() / 3000) * 0.05;
+                
+                // Update all gauges
+                Object.keys(this.gauges).forEach(id => this.drawGauge(id));
+                
+                // Update time
+                document.getElementById('info-time').textContent = new Date().toLocaleTimeString('en-US', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                this.animationId = requestAnimationFrame(() => this.updateSimulation());
+            },
+            
+            resetSimulation: function() {
+                this.state = {
+                    cpuTemp: 45,
+                    cpuVoltage: 1.2,
+                    cpuLoad: 15,
+                    fanSpeed: 1200
+                };
+                
+                Object.keys(this.gauges).forEach(id => this.drawGauge(id));
+            },
+            
+            startStressTest: function() {
+                const originalLoad = this.state.cpuLoad;
+                const interval = setInterval(() => {
+                    this.state.cpuLoad = Math.min(100, this.state.cpuLoad + 10);
+                    this.state.cpuTemp = Math.min(95, this.state.cpuTemp + 5);
+                    this.state.fanSpeed = Math.min(3000, this.state.fanSpeed + 200);
+                    
+                    Object.keys(this.gauges).forEach(id => this.drawGauge(id));
+                }, 500);
+                
+                setTimeout(() => clearInterval(interval), 10000);
+            },
+            
+            stop: function() {
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+            }
+        };
     }
 }
 
