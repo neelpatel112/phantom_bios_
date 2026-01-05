@@ -2,18 +2,18 @@ class BIOSMenu {
     constructor() {
         // Menu structure - INCLUDES BOOT MANAGER
         this.menuItems = [
-            { id: 'standard-cmos', title: "STANDARD CMOS SETUP", desc: "Date, Time, Hard Disk Type" },
-            { id: 'bios-features', title: "BIOS FEATURES SETUP", desc: "Advanced BIOS Options" },
-            { id: 'chipset', title: "CHIPSET FEATURES SETUP", desc: "Chipset Configuration" },
-            { id: 'power', title: "POWER MANAGEMENT SETUP", desc: "Power Saving Options" },
-            { id: 'pnp', title: "PNP/PCI CONFIGURATION", desc: "Plug & Play Settings" },
+            { id: 'standard-cmos', title: "STANDARD CMOS SETUP", desc: "Date, Time, Hard Disk Type", type: 'settings' },
+            { id: 'bios-features', title: "BIOS FEATURES SETUP", desc: "Advanced BIOS Options", type: 'settings' },
+            { id: 'chipset', title: "CHIPSET FEATURES SETUP", desc: "Chipset Configuration", type: 'settings' },
+            { id: 'power', title: "POWER MANAGEMENT SETUP", desc: "Power Saving Options", type: 'settings' },
+            { id: 'pnp', title: "PNP/PCI CONFIGURATION", desc: "Plug & Play Settings", type: 'settings' },
             { id: 'load-bios-defaults', title: "LOAD BIOS DEFAULTS", desc: "Load Default Settings", action: 'loadDefaults' },
             { id: 'load-setup-defaults', title: "LOAD SETUP DEFAULTS", desc: "Load Optimized Defaults", action: 'loadOptimized' },
-            { id: 'peripherals', title: "INTEGRATED PERIPHERALS", desc: "Onboard Devices" },
-            { id: 'boot-manager', title: "BOOT MANAGER", desc: "Configure Boot Device Order" }, // NEW!
-            { id: 'hardware-monitor', title: "HARDWARE MONITOR", desc: "Temperature & Voltage" },
-            { id: 'supervisor-password', title: "SUPERVISOR PASSWORD", desc: "Set Administrator Password", action: 'setPassword' },
-            { id: 'user-password', title: "USER PASSWORD", desc: "Set User Password", action: 'setPassword' },
+            { id: 'peripherals', title: "INTEGRATED PERIPHERALS", desc: "Onboard Devices", type: 'settings' },
+            { id: 'boot-manager', title: "BOOT MANAGER", desc: "Configure Boot Device Order", type: 'settings' },
+            { id: 'hardware-monitor', title: "HARDWARE MONITOR", desc: "Temperature & Voltage", type: 'settings' },
+            { id: 'supervisor-password', title: "SUPERVISOR PASSWORD", desc: "Set Administrator Password", action: 'setPassword', passwordType: 'supervisor' },
+            { id: 'user-password', title: "USER PASSWORD", desc: "Set User Password", action: 'setPassword', passwordType: 'user' },
             { id: 'save-exit', title: "SAVE & EXIT SETUP", desc: "Save Changes and Reboot", action: 'saveExit' },
             { id: 'exit-without-saving', title: "EXIT WITHOUT SAVING", desc: "Discard Changes and Reboot", action: 'exitWithoutSave' }
         ];
@@ -22,14 +22,66 @@ class BIOSMenu {
         this.state = {
             date: new Date(),
             time: new Date(),
-            bootOrder: ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'],
+            bootOrder: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
             cpuSpeed: '1000MHz',
             memorySpeed: '133MHz',
             virtualization: false,
             quickBoot: true,
             bootNumLock: true,
             bootDelay: 0,
-            securityLevel: 'None'
+            securityLevel: 'None',
+            supervisorPassword: '',
+            userPassword: '',
+            biosFeatures: {
+                cpuCache: 'Enabled',
+                quickPowerOnSelfTest: 'Enabled',
+                bootVirusDetection: 'Disabled',
+                processorNumber: 'Enabled',
+                hddSmarterror: 'Enabled',
+                bootSequence: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
+                swapFloppy: 'Disabled',
+                bootUpNumLock: 'On',
+                gateA20: 'Fast',
+                typematicRate: 'Fast',
+                typematicDelay: 'Short',
+                securityOption: 'Setup'
+            },
+            chipsetFeatures: {
+                sdramTiming: 'Auto',
+                sdramCASLatency: '2.5',
+                agpAperture: '64MB',
+                agpMode: '4X',
+                onboardSound: 'Auto',
+                onboardLan: 'Enabled',
+                usbController: 'Enabled'
+            },
+            powerManagement: {
+                acpiSuspend: 'S1(POS)',
+                powerButton: 'Delay 4 Sec',
+                wakeOnLan: 'Enabled',
+                wakeOnRing: 'Disabled',
+                cpuFanOffInSuspend: 'Enabled',
+                pmEvents: 'Enabled'
+            },
+            pnpConfiguration: {
+                pnpOsInstalled: 'No',
+                resetConfigurationData: 'Disabled',
+                resourcesControlledBy: 'Auto',
+                irqResources: 'Legacy',
+                dmaResources: 'Legacy'
+            },
+            peripherals: {
+                onboardFdc: 'Enabled',
+                serialPort1: '3F8/IRQ4',
+                serialPort2: '2F8/IRQ3',
+                parallelPort: '378/IRQ7',
+                parallelMode: 'ECP+EPP',
+                idePrimaryMaster: 'Auto',
+                idePrimarySlave: 'Auto',
+                ideSecondaryMaster: 'Auto',
+                ideSecondarySlave: 'Auto',
+                usbKeyboardSupport: 'Enabled'
+            }
         };
 
         // Navigation state
@@ -38,6 +90,8 @@ class BIOSMenu {
         this.currentSettingsPage = null;
         this.exitModalActive = false;
         this.exitModalIndex = 0;
+        this.editingField = null;
+        this.editingValue = '';
 
         // Hardware Monitor
         this.hardwareMonitor = null;
@@ -107,15 +161,16 @@ class BIOSMenu {
     createAllSettingsPages() {
         // Create all pages
         this.createStandardCMOSPage();
+        this.createBiosFeaturesPage();
+        this.createChipsetFeaturesPage();
+        this.createPowerManagementPage();
+        this.createPnPConfigurationPage();
+        this.createPeripheralsPage();
         this.createHardwareMonitorPage();
-        this.createBootManagerPage(); // NEW BOOT MANAGER!
+        this.createBootManagerPage();
         
-        // Create placeholder pages
-        this.createPlaceholderPage('bios-features', 'BIOS Features Setup');
-        this.createPlaceholderPage('chipset', 'Chipset Features Setup');
-        this.createPlaceholderPage('power', 'Power Management Setup');
-        this.createPlaceholderPage('pnp', 'PNP/PCI Configuration');
-        this.createPlaceholderPage('peripherals', 'Integrated Peripherals');
+        // Create password pages
+        this.createPasswordPage();
     }
 
     createStandardCMOSPage() {
@@ -143,32 +198,462 @@ class BIOSMenu {
             <div class="settings-group">
                 <div class="setting-row">
                     <span class="setting-label">Primary Master:</span>
-                    <span class="setting-value">ST310211A [Auto]</span>
+                    <span class="setting-value editable" data-field="idePrimaryMaster">
+                        ${this.state.peripherals.idePrimaryMaster}
+                    </span>
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Primary Slave:</span>
-                    <span class="setting-value">None</span>
+                    <span class="setting-value editable" data-field="idePrimarySlave">
+                        ${this.state.peripherals.idePrimarySlave}
+                    </span>
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Secondary Master:</span>
-                    <span class="setting-value">CD-ROM [Auto]</span>
+                    <span class="setting-value editable" data-field="ideSecondaryMaster">
+                        ${this.state.peripherals.ideSecondaryMaster}
+                    </span>
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Secondary Slave:</span>
-                    <span class="setting-value">None</span>
+                    <span class="setting-value editable" data-field="ideSecondarySlave">
+                        ${this.state.peripherals.ideSecondarySlave}
+                    </span>
                 </div>
             </div>
             
             <div class="help-footer">
-                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   F10: Save   ESC: Exit
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
             </div>
         `;
         
         this.settingsContainer.appendChild(page);
         
-        // Add click handlers
-        page.querySelector('#date-value').addEventListener('click', () => this.editDate());
-        page.querySelector('#time-value').addEventListener('click', () => this.editTime());
+        // Add click handlers for editable fields
+        const editableFields = page.querySelectorAll('.editable');
+        editableFields.forEach(field => {
+            field.addEventListener('click', (e) => {
+                if (field.id === 'date-value') {
+                    this.editDate();
+                } else if (field.id === 'time-value') {
+                    this.editTime();
+                } else {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                }
+            });
+        });
+    }
+
+    createBiosFeaturesPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-bios-features';
+        page.innerHTML = `
+            <div class="settings-header">BIOS FEATURES SETUP</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    CPU & MEMORY SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">CPU Internal Cache:</span>
+                    <span class="setting-value editable" data-field="cpuCache" data-options="Enabled,Disabled">
+                        ${this.state.biosFeatures.cpuCache}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Quick Power On Self Test:</span>
+                    <span class="setting-value editable" data-field="quickPowerOnSelfTest" data-options="Enabled,Disabled">
+                        ${this.state.biosFeatures.quickPowerOnSelfTest}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Boot Virus Detection:</span>
+                    <span class="setting-value editable" data-field="bootVirusDetection" data-options="Enabled,Disabled">
+                        ${this.state.biosFeatures.bootVirusDetection}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Processor Number Feature:</span>
+                    <span class="setting-value editable" data-field="processorNumber" data-options="Enabled,Disabled">
+                        ${this.state.biosFeatures.processorNumber}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    BOOT SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Boot Up NumLock Status:</span>
+                    <span class="setting-value editable" data-field="bootUpNumLock" data-options="On,Off">
+                        ${this.state.biosFeatures.bootUpNumLock}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Security Option:</span>
+                    <span class="setting-value editable" data-field="securityOption" data-options="Setup,System">
+                        ${this.state.biosFeatures.securityOption}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Swap Floppy Drive:</span>
+                    <span class="setting-value editable" data-field="swapFloppy" data-options="Enabled,Disabled">
+                        ${this.state.biosFeatures.swapFloppy}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    KEYBOARD SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Typematic Rate Setting:</span>
+                    <span class="setting-value editable" data-field="typematicRate" data-options="Disabled,Enabled">
+                        ${this.state.biosFeatures.typematicRate}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Typematic Rate (Chars/Sec):</span>
+                    <span class="setting-value editable" data-field="typematicRate" data-options="6,8,10,12,15,20,24,30">
+                        ${this.state.biosFeatures.typematicRate}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Typematic Delay (Msec):</span>
+                    <span class="setting-value editable" data-field="typematicDelay" data-options="250,500,750,1000">
+                        ${this.state.biosFeatures.typematicDelay}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Add click handlers for editable fields
+        setTimeout(() => {
+            const editableFields = page.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', (e) => {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                });
+            });
+        }, 10);
+    }
+
+    createChipsetFeaturesPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-chipset';
+        page.innerHTML = `
+            <div class="settings-header">CHIPSET FEATURES SETUP</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    MEMORY SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">SDRAM Timing:</span>
+                    <span class="setting-value editable" data-field="sdramTiming" data-options="Auto,Manual">
+                        ${this.state.chipsetFeatures.sdramTiming}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">SDRAM CAS Latency:</span>
+                    <span class="setting-value editable" data-field="sdramCASLatency" data-options="2,2.5,3">
+                        ${this.state.chipsetFeatures.sdramCASLatency}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">AGP Aperture Size:</span>
+                    <span class="setting-value editable" data-field="agpAperture" data-options="32MB,64MB,128MB,256MB">
+                        ${this.state.chipsetFeatures.agpAperture}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">AGP Mode:</span>
+                    <span class="setting-value editable" data-field="agpMode" data-options="1X,2X,4X">
+                        ${this.state.chipsetFeatures.agpMode}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    ONBOARD DEVICES
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Onboard Sound Controller:</span>
+                    <span class="setting-value editable" data-field="onboardSound" data-options="Auto,Enabled,Disabled">
+                        ${this.state.chipsetFeatures.onboardSound}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Onboard LAN Controller:</span>
+                    <span class="setting-value editable" data-field="onboardLan" data-options="Enabled,Disabled">
+                        ${this.state.chipsetFeatures.onboardLan}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">USB Controller:</span>
+                    <span class="setting-value editable" data-field="usbController" data-options="Enabled,Disabled">
+                        ${this.state.chipsetFeatures.usbController}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Add click handlers for editable fields
+        setTimeout(() => {
+            const editableFields = page.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', (e) => {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                });
+            });
+        }, 10);
+    }
+
+    createPowerManagementPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-power';
+        page.innerHTML = `
+            <div class="settings-header">POWER MANAGEMENT SETUP</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    POWER SAVING
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">ACPI Suspend Type:</span>
+                    <span class="setting-value editable" data-field="acpiSuspend" data-options="S1(POS),S3(STR)">
+                        ${this.state.powerManagement.acpiSuspend}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Power Button Function:</span>
+                    <span class="setting-value editable" data-field="powerButton" data-options="Instant Off,Delay 4 Sec">
+                        ${this.state.powerManagement.powerButton}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Wake On LAN:</span>
+                    <span class="setting-value editable" data-field="wakeOnLan" data-options="Enabled,Disabled">
+                        ${this.state.powerManagement.wakeOnLan}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Wake On Ring:</span>
+                    <span class="setting-value editable" data-field="wakeOnRing" data-options="Enabled,Disabled">
+                        ${this.state.powerManagement.wakeOnRing}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    FAN CONTROL
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">CPU Fan Off In Suspend:</span>
+                    <span class="setting-value editable" data-field="cpuFanOffInSuspend" data-options="Enabled,Disabled">
+                        ${this.state.powerManagement.cpuFanOffInSuspend}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">PME Events Wake Up:</span>
+                    <span class="setting-value editable" data-field="pmEvents" data-options="Enabled,Disabled">
+                        ${this.state.powerManagement.pmEvents}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Add click handlers for editable fields
+        setTimeout(() => {
+            const editableFields = page.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', (e) => {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                });
+            });
+        }, 10);
+    }
+
+    createPnPConfigurationPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-pnp';
+        page.innerHTML = `
+            <div class="settings-header">PNP/PCI CONFIGURATION</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    PLUG & PLAY SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">PNP OS Installed:</span>
+                    <span class="setting-value editable" data-field="pnpOsInstalled" data-options="Yes,No">
+                        ${this.state.pnpConfiguration.pnpOsInstalled}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Reset Configuration Data:</span>
+                    <span class="setting-value editable" data-field="resetConfigurationData" data-options="Enabled,Disabled">
+                        ${this.state.pnpConfiguration.resetConfigurationData}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Resources Controlled By:</span>
+                    <span class="setting-value editable" data-field="resourcesControlledBy" data-options="Auto,Manual">
+                        ${this.state.pnpConfiguration.resourcesControlledBy}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    RESOURCE SETTINGS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">IRQ Resources:</span>
+                    <span class="setting-value editable" data-field="irqResources" data-options="Legacy,PCI/PnP">
+                        ${this.state.pnpConfiguration.irqResources}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">DMA Resources:</span>
+                    <span class="setting-value editable" data-field="dmaResources" data-options="Legacy,PCI/PnP">
+                        ${this.state.pnpConfiguration.dmaResources}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Add click handlers for editable fields
+        setTimeout(() => {
+            const editableFields = page.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', (e) => {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                });
+            });
+        }, 10);
+    }
+
+    createPeripheralsPage() {
+        const page = document.createElement('div');
+        page.className = 'settings-page';
+        page.id = 'page-peripherals';
+        page.innerHTML = `
+            <div class="settings-header">INTEGRATED PERIPHERALS</div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    SERIAL/PARALLEL PORTS
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Onboard FDC Controller:</span>
+                    <span class="setting-value editable" data-field="onboardFdc" data-options="Enabled,Disabled">
+                        ${this.state.peripherals.onboardFdc}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Serial Port 1:</span>
+                    <span class="setting-value editable" data-field="serialPort1" data-options="Disabled,3F8/IRQ4,2F8/IRQ3,3E8/IRQ4,2E8/IRQ3">
+                        ${this.state.peripherals.serialPort1}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Serial Port 2:</span>
+                    <span class="setting-value editable" data-field="serialPort2" data-options="Disabled,3F8/IRQ4,2F8/IRQ3,3E8/IRQ4,2E8/IRQ3">
+                        ${this.state.peripherals.serialPort2}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Parallel Port:</span>
+                    <span class="setting-value editable" data-field="parallelPort" data-options="Disabled,378/IRQ7,278/IRQ5,3BC/IRQ7">
+                        ${this.state.peripherals.parallelPort}
+                    </span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Parallel Port Mode:</span>
+                    <span class="setting-value editable" data-field="parallelMode" data-options="SPP,EPP,ECP,ECP+EPP">
+                        ${this.state.peripherals.parallelMode}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <h3 style="color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    USB & KEYBOARD
+                </h3>
+                
+                <div class="setting-row">
+                    <span class="setting-label">USB Keyboard Support:</span>
+                    <span class="setting-value editable" data-field="usbKeyboardSupport" data-options="Enabled,Disabled">
+                        ${this.state.peripherals.usbKeyboardSupport}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="help-footer">
+                ↑↓ : Select Item   ←→ : Change Value   +/- : Adjust   Enter: Edit   F10: Save   ESC: Exit
+            </div>
+        `;
+        
+        this.settingsContainer.appendChild(page);
+        
+        // Add click handlers for editable fields
+        setTimeout(() => {
+            const editableFields = page.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', (e) => {
+                    const fieldName = field.dataset.field;
+                    this.editField(fieldName, field);
+                });
+            });
+        }, 10);
     }
 
     createHardwareMonitorPage() {
@@ -297,13 +782,12 @@ class BIOSMenu {
         this.settingsContainer.appendChild(page);
     }
 
-    // ========== BOOT MANAGER PAGE ==========
     createBootManagerPage() {
         const page = document.createElement('div');
         page.className = 'settings-page';
         page.id = 'page-boot-manager';
         
-        const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+        const bootDevices = this.state.bootOrder || ['Hard Disk', 'CD-ROM', 'USB', 'Network'];
         
         page.innerHTML = `
             <div class="settings-header">BOOT MANAGER</div>
@@ -391,6 +875,46 @@ class BIOSMenu {
         }, 10);
     }
 
+    createPasswordPage() {
+        // Create password modal
+        const modal = document.createElement('div');
+        modal.id = 'password-modal';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000a14;
+            border: 2px solid #333;
+            padding: 30px;
+            width: 400px;
+            z-index: 1000;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+        `;
+        modal.innerHTML = `
+            <div style="text-align: center; color: #fff; margin-bottom: 20px;">
+                <h3 id="password-title">SET PASSWORD</h3>
+                <p id="password-message">Enter new password (max 8 characters):</p>
+                <input type="password" id="password-input" style="
+                    width: 80%;
+                    padding: 10px;
+                    background: #000;
+                    border: 1px solid #333;
+                    color: #90ee90;
+                    font-family: 'IBM Plex Mono', monospace;
+                    font-size: 1.2em;
+                    text-align: center;
+                    margin: 20px 0;
+                " maxlength="8">
+                <div style="color: #aaa; font-size: 0.9em; margin-top: 10px;">
+                    Press Enter to confirm, ESC to cancel
+                </div>
+            </div>
+        `;
+        document.getElementById('bios-screen').appendChild(modal);
+    }
+
     renderBootDevicesList() {
         const container = document.getElementById('boot-devices-list');
         if (!container) return;
@@ -428,16 +952,18 @@ class BIOSMenu {
         });
         
         // Update current boot device display
-        document.getElementById('current-boot-device').textContent = bootDevices[0];
+        if (document.getElementById('current-boot-device')) {
+            document.getElementById('current-boot-device').textContent = bootDevices[0];
+        }
     }
 
     getBootDeviceIcon(device) {
         const icons = {
             'Hard Disk': '💾',
             'CD-ROM': '💿',
-            'Floppy': '📼',
-            'Network': '🌐',
             'USB': '🔌',
+            'Network': '🌐',
+            'Floppy': '📼',
             'SSD': '⚡'
         };
         return icons[device] || '💻';
@@ -447,9 +973,9 @@ class BIOSMenu {
         const types = {
             'Hard Disk': 'ATA/IDE Drive',
             'CD-ROM': 'Optical Drive',
-            'Floppy': 'Floppy Disk Drive',
-            'Network': 'PXE Network Boot',
             'USB': 'USB Mass Storage',
+            'Network': 'PXE Network Boot',
+            'Floppy': 'Floppy Disk Drive',
             'SSD': 'Solid State Drive'
         };
         return types[device] || 'Boot Device';
@@ -586,29 +1112,39 @@ class BIOSMenu {
         });
         
         // Toggle switches
-        document.getElementById('quick-boot-toggle')?.addEventListener('change', (e) => {
-            this.state.quickBoot = e.target.checked;
-            const status = e.target.nextElementSibling.nextElementSibling;
-            status.textContent = e.target.checked ? 'Enabled' : 'Disabled';
-            status.style.color = e.target.checked ? '#90ee90' : '#aaa';
-            this.saveState();
-            this.showToast(`Quick Boot ${e.target.checked ? 'Enabled' : 'Disabled'}`);
-        });
+        const quickBootToggle = document.getElementById('quick-boot-toggle');
+        const numlockToggle = document.getElementById('numlock-toggle');
+        const bootDelaySelect = document.getElementById('boot-delay-select');
         
-        document.getElementById('numlock-toggle')?.addEventListener('change', (e) => {
-            this.state.bootNumLock = e.target.checked;
-            const status = e.target.nextElementSibling.nextElementSibling;
-            status.textContent = e.target.checked ? 'On' : 'Off';
-            status.style.color = e.target.checked ? '#90ee90' : '#aaa';
-            this.saveState();
-            this.showToast(`Boot NumLock ${e.target.checked ? 'On' : 'Off'}`);
-        });
+        if (quickBootToggle) {
+            quickBootToggle.addEventListener('change', (e) => {
+                this.state.quickBoot = e.target.checked;
+                const status = e.target.nextElementSibling.nextElementSibling;
+                status.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+                status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+                this.saveState();
+                this.showToast(`Quick Boot ${e.target.checked ? 'Enabled' : 'Disabled'}`);
+            });
+        }
         
-        document.getElementById('boot-delay-select')?.addEventListener('change', (e) => {
-            this.state.bootDelay = parseInt(e.target.value);
-            this.saveState();
-            this.showToast(`Boot delay set to ${e.target.value} seconds`);
-        });
+        if (numlockToggle) {
+            numlockToggle.addEventListener('change', (e) => {
+                this.state.bootNumLock = e.target.checked;
+                const status = e.target.nextElementSibling.nextElementSibling;
+                status.textContent = e.target.checked ? 'On' : 'Off';
+                status.style.color = e.target.checked ? '#90ee90' : '#aaa';
+                this.saveState();
+                this.showToast(`Boot NumLock ${e.target.checked ? 'On' : 'Off'}`);
+            });
+        }
+        
+        if (bootDelaySelect) {
+            bootDelaySelect.addEventListener('change', (e) => {
+                this.state.bootDelay = parseInt(e.target.value);
+                this.saveState();
+                this.showToast(`Boot delay set to ${e.target.value} seconds`);
+            });
+        }
     }
 
     moveBootDevice(fromIndex, toIndex) {
@@ -637,7 +1173,7 @@ class BIOSMenu {
     }
 
     resetBootOrder() {
-        this.state.bootOrder = ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+        this.state.bootOrder = ['Hard Disk', 'CD-ROM', 'USB', 'Network'];
         this.state.quickBoot = true;
         this.state.bootNumLock = true;
         this.state.bootDelay = 0;
@@ -656,23 +1192,6 @@ class BIOSMenu {
         this.playNavSound(1000, 100);
     }
 
-    createPlaceholderPage(id, title) {
-        const page = document.createElement('div');
-        page.className = 'settings-page';
-        page.id = `page-${id}`;
-        page.innerHTML = `
-            <div class="settings-header">${title}</div>
-            <div style="text-align: center; margin-top: 100px; color: #aaa;">
-                <p>Settings page under construction</p>
-                <p>Check back in future updates!</p>
-            </div>
-            <div class="help-footer">
-                ESC: Return to Main Menu
-            </div>
-        `;
-        this.settingsContainer.appendChild(page);
-    }
-
     formatDate(date) {
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
@@ -680,7 +1199,7 @@ class BIOSMenu {
         return `${mm}/${dd}/${yyyy}`;
     }
 
-    formatTime(date) {
+    formatTime(date = new Date()) {
         const hh = String(date.getHours()).padStart(2, '0');
         const mm = String(date.getMinutes()).padStart(2, '0');
         const ss = String(date.getSeconds()).padStart(2, '0');
@@ -725,10 +1244,88 @@ class BIOSMenu {
         });
     }
 
+    editField(fieldName, element) {
+        this.editingField = fieldName;
+        this.editingValue = element.textContent.trim();
+        
+        // Get options if available
+        const options = element.dataset.options ? element.dataset.options.split(',') : [];
+        
+        element.classList.add('editing');
+        
+        if (options.length > 0) {
+            // For fields with predefined options, create a dropdown
+            const select = document.createElement('select');
+            select.style.cssText = `
+                background: #000a14;
+                color: #fff;
+                border: 1px solid #90ee90;
+                font-family: 'IBM Plex Mono', monospace;
+                padding: 2px 5px;
+            `;
+            
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                opt.selected = option === this.editingValue;
+                select.appendChild(opt);
+            });
+            
+            element.innerHTML = '';
+            element.appendChild(select);
+            
+            select.focus();
+            
+            select.addEventListener('change', () => {
+                this.saveField(fieldName, select.value);
+            });
+            
+            select.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.saveField(fieldName, select.value);
+                } else if (e.key === 'Escape') {
+                    this.cancelEdit();
+                }
+            });
+        } else {
+            // For free-form fields
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = this.editingValue;
+            input.style.cssText = `
+                background: #000a14;
+                color: #fff;
+                border: 1px solid #90ee90;
+                font-family: 'IBM Plex Mono', monospace;
+                padding: 2px 5px;
+                width: 100px;
+            `;
+            
+            element.innerHTML = '';
+            element.appendChild(input);
+            
+            input.focus();
+            input.select();
+            
+            const saveHandler = () => this.saveField(fieldName, input.value);
+            
+            input.addEventListener('blur', saveHandler);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    saveHandler();
+                } else if (e.key === 'Escape') {
+                    this.cancelEdit();
+                }
+            });
+        }
+    }
+
     saveDate() {
         const input = document.getElementById('date-input');
-        const value = input.value;
+        if (!input) return;
         
+        const value = input.value;
         const regex = /^\d{2}\/\d{2}\/\d{4}$/;
         if (regex.test(value)) {
             const [mm, dd, yyyy] = value.split('/').map(Number);
@@ -738,6 +1335,7 @@ class BIOSMenu {
             newDate.setFullYear(yyyy);
             this.state.date = newDate;
             this.saveState();
+            this.showToast('Date updated');
         }
         
         this.updateDisplay();
@@ -745,8 +1343,9 @@ class BIOSMenu {
 
     saveTime() {
         const input = document.getElementById('time-input');
-        const value = input.value;
+        if (!input) return;
         
+        const value = input.value;
         const regex = /^\d{2}:\d{2}:\d{2}$/;
         if (regex.test(value)) {
             const [hh, mm, ss] = value.split(':').map(Number);
@@ -756,24 +1355,120 @@ class BIOSMenu {
             newTime.setSeconds(ss);
             this.state.time = newTime;
             this.saveState();
+            this.showToast('Time updated');
         }
         
         this.updateDisplay();
     }
 
+    saveField(fieldName, value) {
+        // Determine which settings category this field belongs to
+        let settingsCategory = null;
+        let subField = fieldName;
+        
+        if (fieldName in this.state.biosFeatures) {
+            settingsCategory = 'biosFeatures';
+        } else if (fieldName in this.state.chipsetFeatures) {
+            settingsCategory = 'chipsetFeatures';
+        } else if (fieldName in this.state.powerManagement) {
+            settingsCategory = 'powerManagement';
+        } else if (fieldName in this.state.pnpConfiguration) {
+            settingsCategory = 'pnpConfiguration';
+        } else if (fieldName in this.state.peripherals) {
+            settingsCategory = 'peripherals';
+        }
+        
+        if (settingsCategory) {
+            this.state[settingsCategory][fieldName] = value;
+            this.saveState();
+            this.showToast(`${fieldName} set to ${value}`);
+        }
+        
+        // Re-render the page to show updated value
+        this.cancelEdit();
+        
+        // Refresh the current page
+        const currentPage = document.getElementById(`page-${this.currentSettingsPage}`);
+        if (currentPage) {
+            // Recreate the page content
+            this.recreateCurrentPage();
+        }
+    }
+
+    recreateCurrentPage() {
+        // This is a simplified version - in a real implementation, you'd update only the changed values
+        const pageId = this.currentSettingsPage;
+        const page = document.getElementById(`page-${pageId}`);
+        if (!page) return;
+        
+        // Just update the display for now
+        const editableFields = page.querySelectorAll('.editable');
+        editableFields.forEach(field => {
+            const fieldName = field.dataset.field;
+            if (fieldName) {
+                // Find the value in state
+                let value = '';
+                if (fieldName in this.state.biosFeatures) {
+                    value = this.state.biosFeatures[fieldName];
+                } else if (fieldName in this.state.chipsetFeatures) {
+                    value = this.state.chipsetFeatures[fieldName];
+                } else if (fieldName in this.state.powerManagement) {
+                    value = this.state.powerManagement[fieldName];
+                } else if (fieldName in this.state.pnpConfiguration) {
+                    value = this.state.pnpConfiguration[fieldName];
+                } else if (fieldName in this.state.peripherals) {
+                    value = this.state.peripherals[fieldName];
+                }
+                
+                if (value) {
+                    field.textContent = value;
+                }
+            }
+        });
+    }
+
     cancelEdit() {
+        this.editingField = null;
+        this.editingValue = '';
+        
+        // Remove editing class from all fields
+        document.querySelectorAll('.editing').forEach(el => {
+            el.classList.remove('editing');
+        });
+        
+        // Update display for date/time
         this.updateDisplay();
     }
 
     updateDisplay() {
-        document.getElementById('date-value').textContent = this.formatDate(this.state.date);
-        document.getElementById('time-value').textContent = this.formatTime(this.state.time);
+        const dateValue = document.getElementById('date-value');
+        const timeValue = document.getElementById('time-value');
+        
+        if (dateValue && !dateValue.querySelector('input')) {
+            dateValue.textContent = this.formatDate(this.state.date);
+        }
+        if (timeValue && !timeValue.querySelector('input')) {
+            timeValue.textContent = this.formatTime(this.state.time);
+        }
     }
 
     setupKeyboard() {
         document.addEventListener('keydown', (e) => {
             if (this.exitModalActive) {
                 this.handleExitModalKey(e);
+                return;
+            }
+            
+            // Check if password modal is active
+            const passwordModal = document.getElementById('password-modal');
+            if (passwordModal && passwordModal.style.display !== 'none') {
+                this.handlePasswordModalKey(e);
+                return;
+            }
+            
+            // Check if we're editing a field
+            if (this.editingField) {
+                this.handleEditModeKey(e);
                 return;
             }
             
@@ -826,14 +1521,91 @@ class BIOSMenu {
                         this.hardwareMonitor.startStressTest();
                     }
                     break;
+                    
+                case '+':
+                case '=':
+                    if (this.inSettingsPage) {
+                        e.preventDefault();
+                        this.adjustValue(1);
+                    }
+                    break;
+                    
+                case '-':
+                case '_':
+                    if (this.inSettingsPage) {
+                        e.preventDefault();
+                        this.adjustValue(-1);
+                    }
+                    break;
             }
         });
     }
 
+    handleEditModeKey(e) {
+        switch(e.key) {
+            case 'Escape':
+                e.preventDefault();
+                this.cancelEdit();
+                break;
+            case 'Enter':
+                // Already handled in individual edit functions
+                break;
+        }
+    }
+
+    adjustValue(direction) {
+        // Find the selected setting row
+        const selectedRow = document.querySelector('.setting-row.selected');
+        if (!selectedRow) return;
+        
+        const valueElement = selectedRow.querySelector('.setting-value');
+        if (!valueElement || !valueElement.classList.contains('editable')) return;
+        
+        const fieldName = valueElement.dataset.field;
+        if (!fieldName) return;
+        
+        // Get current value and options
+        const currentValue = valueElement.textContent.trim();
+        const options = valueElement.dataset.options ? valueElement.dataset.options.split(',') : [];
+        
+        if (options.length > 0) {
+            // Find current index and move to next/prev
+            const currentIndex = options.indexOf(currentValue);
+            if (currentIndex !== -1) {
+                let newIndex = currentIndex + direction;
+                if (newIndex < 0) newIndex = options.length - 1;
+                if (newIndex >= options.length) newIndex = 0;
+                
+                this.saveField(fieldName, options[newIndex]);
+            }
+        }
+    }
+
     navigate(direction) {
         if (this.inSettingsPage) {
-            this.playNavSound(700, 30);
+            // Navigation within settings page
+            const rows = document.querySelectorAll('.setting-row');
+            if (rows.length === 0) return;
+            
+            let currentIndex = 0;
+            rows.forEach((row, index) => {
+                if (row.classList.contains('selected')) {
+                    currentIndex = index;
+                }
+            });
+            
+            rows.forEach(row => row.classList.remove('selected'));
+            
+            let newIndex = currentIndex + direction;
+            if (newIndex < 0) newIndex = rows.length - 1;
+            if (newIndex >= rows.length) newIndex = 0;
+            
+            rows[newIndex].classList.add('selected');
+            rows[newIndex].scrollIntoView({ block: 'nearest' });
+            
+            this.playNavSound(600 + (direction * 100), 30);
         } else {
+            // Navigation in main menu
             const newIndex = this.currentIndex + direction;
             
             if (newIndex >= 0 && newIndex < this.menuItems.length) {
@@ -862,8 +1634,8 @@ class BIOSMenu {
         const item = this.menuItems[this.currentIndex];
         
         if (item.action) {
-            this.handleAction(item.action);
-        } else {
+            this.handleAction(item.action, item.passwordType);
+        } else if (item.type === 'settings') {
             this.openSettingsPage(item.id);
         }
         
@@ -885,6 +1657,14 @@ class BIOSMenu {
             
             // Update UI state
             document.querySelector('.menu-items').style.opacity = '0.3';
+            
+            // Select first setting row
+            setTimeout(() => {
+                const firstRow = page.querySelector('.setting-row');
+                if (firstRow) {
+                    firstRow.classList.add('selected');
+                }
+            }, 10);
             
             // Initialize hardware monitor if needed
             if (pageId === 'hardware-monitor') {
@@ -921,24 +1701,28 @@ class BIOSMenu {
             
             this.inSettingsPage = false;
             this.currentSettingsPage = null;
+            this.editingField = null;
             document.querySelector('.menu-items').style.opacity = '1';
             
             this.playNavSound(500, 50);
+        } else {
+            // If in main menu, show exit modal
+            this.showExitModal(false);
         }
     }
 
-    handleAction(action) {
+    handleAction(action, passwordType = null) {
         switch(action) {
             case 'loadDefaults':
-                alert('Load BIOS Defaults: Would reset to factory settings');
+                this.loadBIOSDefaults();
                 break;
                 
             case 'loadOptimized':
-                alert('Load Setup Defaults: Would load optimized settings');
+                this.loadOptimizedDefaults();
                 break;
                 
             case 'setPassword':
-                this.setPassword();
+                this.showPasswordModal(passwordType);
                 break;
                 
             case 'saveExit':
@@ -951,14 +1735,205 @@ class BIOSMenu {
         }
     }
 
-    setPassword() {
-        const password = prompt('Enter new password (max 8 chars):');
-        if (password && password.length <= 8) {
-            alert(`Password set to: ${password}`);
-            this.state.securityLevel = 'Basic';
+    loadBIOSDefaults() {
+        if (confirm('Load BIOS defaults? All settings will be reset to factory defaults.')) {
+            // Reset to factory defaults
+            this.state = {
+                ...this.state,
+                biosFeatures: {
+                    cpuCache: 'Enabled',
+                    quickPowerOnSelfTest: 'Enabled',
+                    bootVirusDetection: 'Disabled',
+                    processorNumber: 'Enabled',
+                    hddSmarterror: 'Enabled',
+                    bootSequence: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
+                    swapFloppy: 'Disabled',
+                    bootUpNumLock: 'On',
+                    gateA20: 'Fast',
+                    typematicRate: 'Fast',
+                    typematicDelay: 'Short',
+                    securityOption: 'Setup'
+                },
+                chipsetFeatures: {
+                    sdramTiming: 'Auto',
+                    sdramCASLatency: '2.5',
+                    agpAperture: '64MB',
+                    agpMode: '4X',
+                    onboardSound: 'Auto',
+                    onboardLan: 'Enabled',
+                    usbController: 'Enabled'
+                },
+                powerManagement: {
+                    acpiSuspend: 'S1(POS)',
+                    powerButton: 'Delay 4 Sec',
+                    wakeOnLan: 'Enabled',
+                    wakeOnRing: 'Disabled',
+                    cpuFanOffInSuspend: 'Enabled',
+                    pmEvents: 'Enabled'
+                },
+                pnpConfiguration: {
+                    pnpOsInstalled: 'No',
+                    resetConfigurationData: 'Disabled',
+                    resourcesControlledBy: 'Auto',
+                    irqResources: 'Legacy',
+                    dmaResources: 'Legacy'
+                },
+                peripherals: {
+                    onboardFdc: 'Enabled',
+                    serialPort1: '3F8/IRQ4',
+                    serialPort2: '2F8/IRQ3',
+                    parallelPort: '378/IRQ7',
+                    parallelMode: 'ECP+EPP',
+                    idePrimaryMaster: 'Auto',
+                    idePrimarySlave: 'Auto',
+                    ideSecondaryMaster: 'Auto',
+                    ideSecondarySlave: 'Auto',
+                    usbKeyboardSupport: 'Enabled'
+                },
+                bootOrder: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
+                quickBoot: false,
+                bootNumLock: true,
+                bootDelay: 0
+            };
+            
             this.saveState();
-        } else if (password) {
-            alert('Password too long! Maximum 8 characters.');
+            this.showToast('BIOS defaults loaded');
+            this.playNavSound(1000, 200);
+            
+            // Reload current page if in settings
+            if (this.inSettingsPage && this.currentSettingsPage) {
+                this.recreateCurrentPage();
+            }
+        }
+    }
+
+    loadOptimizedDefaults() {
+        if (confirm('Load optimized defaults? All settings will be set for optimal performance.')) {
+            // Set optimized defaults
+            this.state = {
+                ...this.state,
+                biosFeatures: {
+                    cpuCache: 'Enabled',
+                    quickPowerOnSelfTest: 'Enabled',
+                    bootVirusDetection: 'Disabled',
+                    processorNumber: 'Enabled',
+                    hddSmarterror: 'Enabled',
+                    bootSequence: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
+                    swapFloppy: 'Disabled',
+                    bootUpNumLock: 'On',
+                    gateA20: 'Fast',
+                    typematicRate: 'Fast',
+                    typematicDelay: 'Short',
+                    securityOption: 'Setup'
+                },
+                chipsetFeatures: {
+                    sdramTiming: 'Manual',
+                    sdramCASLatency: '2',
+                    agpAperture: '128MB',
+                    agpMode: '4X',
+                    onboardSound: 'Auto',
+                    onboardLan: 'Enabled',
+                    usbController: 'Enabled'
+                },
+                powerManagement: {
+                    acpiSuspend: 'S1(POS)',
+                    powerButton: 'Instant Off',
+                    wakeOnLan: 'Disabled',
+                    wakeOnRing: 'Disabled',
+                    cpuFanOffInSuspend: 'Enabled',
+                    pmEvents: 'Enabled'
+                },
+                pnpConfiguration: {
+                    pnpOsInstalled: 'Yes',
+                    resetConfigurationData: 'Disabled',
+                    resourcesControlledBy: 'Auto',
+                    irqResources: 'PCI/PnP',
+                    dmaResources: 'PCI/PnP'
+                },
+                peripherals: {
+                    onboardFdc: 'Enabled',
+                    serialPort1: '3F8/IRQ4',
+                    serialPort2: 'Disabled',
+                    parallelPort: '378/IRQ7',
+                    parallelMode: 'ECP+EPP',
+                    idePrimaryMaster: 'Auto',
+                    idePrimarySlave: 'Auto',
+                    ideSecondaryMaster: 'Auto',
+                    ideSecondarySlave: 'Auto',
+                    usbKeyboardSupport: 'Enabled'
+                },
+                bootOrder: ['Hard Disk', 'CD-ROM', 'USB', 'Network'],
+                quickBoot: true,
+                bootNumLock: true,
+                bootDelay: 0
+            };
+            
+            this.saveState();
+            this.showToast('Optimized defaults loaded');
+            this.playNavSound(1200, 200);
+            
+            // Reload current page if in settings
+            if (this.inSettingsPage && this.currentSettingsPage) {
+                this.recreateCurrentPage();
+            }
+        }
+    }
+
+    showPasswordModal(passwordType) {
+        const modal = document.getElementById('password-modal');
+        const title = document.getElementById('password-title');
+        const message = document.getElementById('password-message');
+        const input = document.getElementById('password-input');
+        
+        if (passwordType === 'supervisor') {
+            title.textContent = 'SET SUPERVISOR PASSWORD';
+            message.textContent = 'Enter supervisor password (max 8 characters):';
+        } else {
+            title.textContent = 'SET USER PASSWORD';
+            message.textContent = 'Enter user password (max 8 characters):';
+        }
+        
+        input.value = '';
+        modal.style.display = 'block';
+        input.focus();
+        
+        this.currentPasswordType = passwordType;
+    }
+
+    handlePasswordModalKey(e) {
+        const modal = document.getElementById('password-modal');
+        const input = document.getElementById('password-input');
+        
+        switch(e.key) {
+            case 'Enter':
+                e.preventDefault();
+                const password = input.value.trim();
+                
+                if (password.length > 0 && password.length <= 8) {
+                    if (this.currentPasswordType === 'supervisor') {
+                        this.state.supervisorPassword = password;
+                        this.state.securityLevel = 'Supervisor';
+                    } else {
+                        this.state.userPassword = password;
+                        if (this.state.securityLevel === 'None') {
+                            this.state.securityLevel = 'User';
+                        }
+                    }
+                    
+                    this.saveState();
+                    this.showToast(`${this.currentPasswordType === 'supervisor' ? 'Supervisor' : 'User'} password set`);
+                    modal.style.display = 'none';
+                    this.playNavSound(1000, 100);
+                } else {
+                    this.showToast('Password must be 1-8 characters');
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                modal.style.display = 'none';
+                this.playNavSound(500, 50);
+                break;
         }
     }
 
@@ -1024,296 +1999,300 @@ class BIOSMenu {
     }
 
     updateExitModalSelection() {
-        document.getElementById('exit-yes').classList.toggle('selected', this.exitModalIndex === 0);
-        document.getElementById('exit-no').classList.toggle('selected', this.exitModalIndex === 1);
+        const yesBtn = document.getElementById('exit-yes');
+        const noBtn = document.getElementById('exit-no');
+        
+        if (yesBtn) yesBtn.classList.toggle('selected', this.exitModalIndex === 0);
+        if (noBtn) noBtn.classList.toggle('selected', this.exitModalIndex === 1);
     }
 
     confirmExit(saveChanges) {
-    if (saveChanges) {
-        this.saveState();
-        this.playNavSound(1000, 200);
+        if (saveChanges) {
+            this.saveState();
+            this.playNavSound(1000, 200);
+            
+            const modal = document.getElementById('exit-modal');
+            modal.innerHTML = `
+                <div style="text-align: center; color: #90ee90; padding: 20px;">
+                    <h3>SELECT BOOT DEVICE</h3>
+                    <p style="color: #aaa; margin-bottom: 30px;">Choose operating system to launch:</p>
+                    
+                    <div class="os-selection-grid">
+                        <div class="os-option" data-os="macos">
+                            <div class="os-icon">🖥️</div>
+                            <div class="os-name">macOS Catalina</div>
+                            <div class="os-desc">Apple Desktop Environment</div>
+                            <div class="os-hotkey">[1]</div>
+                        </div>
+                        
+                        <div class="os-option" data-os="windows">
+                            <div class="os-icon">🪟</div>
+                            <div class="os-name">Windows 8.1</div>
+                            <div class="os-desc">Microsoft Metro UI</div>
+                            <div class="os-hotkey">[2]</div>
+                        </div>
+                        
+                        <div class="os-option" data-os="bios">
+                            <div class="os-icon">⚙️</div>
+                            <div class="os-name">Return to BIOS</div>
+                            <div class="os-desc">System Configuration</div>
+                            <div class="os-hotkey">[3]</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 40px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333; border-radius: 5px;">
+                        <div style="color: #fff; font-weight: bold; margin-bottom: 10px;">Boot Information</div>
+                        <div style="color: #aaa; font-size: 0.9em;">
+                            Primary Boot Device: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span><br>
+                            Quick Boot: <span style="color: ${this.state.quickBoot ? '#90ee90' : '#ff6666'}">${this.state.quickBoot ? 'Enabled' : 'Disabled'}</span> | 
+                            Boot Delay: <span style="color: #90ee90;">${this.state.bootDelay || 0}s</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px; color: #666; font-size: 0.9em;">
+                        ↑↓←→ or 1/2/3 : Navigate   Enter : Select   ESC : Cancel
+                    </div>
+                </div>
+            `;
+            
+            this.setupOSSelection();
+        } else {
+            // Exit without saving (reboot)
+            this.playNavSound(800, 150);
+            this.reboot();
+        }
+    }
+
+    setupOSSelection() {
+        const options = document.querySelectorAll('.os-option');
+        let selectedIndex = 0;
+        
+        options[0].classList.add('selected');
+        
+        // Keyboard navigation
+        const keyHandler = (e) => {
+            if (!document.getElementById('exit-modal')) {
+                document.removeEventListener('keydown', keyHandler);
+                return;
+            }
+            
+            // Number keys for quick selection
+            if (e.key >= '1' && e.key <= '3') {
+                e.preventDefault();
+                const index = parseInt(e.key) - 1;
+                options.forEach(opt => opt.classList.remove('selected'));
+                options[index].classList.add('selected');
+                selectedIndex = index;
+                this.playNavSound(700, 50);
+                
+                // Auto-select after short delay
+                setTimeout(() => {
+                    this.bootToOS(options[index].dataset.os);
+                }, 300);
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    options[selectedIndex].classList.remove('selected');
+                    selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+                    options[selectedIndex].classList.add('selected');
+                    this.playNavSound(600, 30);
+                    break;
+                    
+                case 'ArrowDown':
+                case 'ArrowRight':
+                    e.preventDefault();
+                    options[selectedIndex].classList.remove('selected');
+                    selectedIndex = (selectedIndex + 1) % options.length;
+                    options[selectedIndex].classList.add('selected');
+                    this.playNavSound(600, 30);
+                    break;
+                    
+                case 'Enter':
+                    e.preventDefault();
+                    const selectedOS = options[selectedIndex].dataset.os;
+                    this.bootToOS(selectedOS);
+                    break;
+                    
+                case 'Escape':
+                    e.preventDefault();
+                    this.cancelExitModal();
+                    document.removeEventListener('keydown', keyHandler);
+                    break;
+                    
+                case ' ':
+                    e.preventDefault();
+                    // Space toggles quick boot preview
+                    this.toggleQuickBootPreview();
+                    break;
+            }
+        };
+        
+        document.addEventListener('keydown', keyHandler);
+        
+        // Click handlers
+        options.forEach((option, index) => {
+            option.addEventListener('click', () => {
+                options.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedIndex = index;
+                this.bootToOS(option.dataset.os);
+            });
+            
+            // Hover effects
+            option.addEventListener('mouseenter', () => {
+                if (!option.classList.contains('selected')) {
+                    option.style.transform = 'translateY(-2px)';
+                    this.playNavSound(500, 20);
+                }
+            });
+            
+            option.addEventListener('mouseleave', () => {
+                if (!option.classList.contains('selected')) {
+                    option.style.transform = '';
+                }
+            });
+        });
+    }
+
+    toggleQuickBootPreview() {
+        if (!this.state.quickBoot) return;
+        
+        // Show quick boot animation
+        const modal = document.getElementById('exit-modal');
+        const originalContent = modal.innerHTML;
+        
+        modal.innerHTML = `
+            <div style="text-align: center; color: #90ee90; padding: 40px;">
+                <h3>QUICK BOOT ENABLED</h3>
+                <div style="margin: 30px;">
+                    <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
+                        <div id="quick-boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00ff00); transition: width 0.5s;"></div>
+                    </div>
+                </div>
+                <p>Bypassing boot menu...</p>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            document.getElementById('quick-boot-progress').style.width = '100%';
+        }, 100);
+        
+        setTimeout(() => {
+            // Boot to primary OS (macOS by default)
+            this.bootToOS('macos');
+        }, 600);
+    }
+
+    bootToOS(osType) {
+        const osURLs = {
+            'macos': 'https://macoswebemulator.vercel.app',
+            'windows': 'https://windows-8-web-os.vercel.app',
+            'bios': null
+        };
+        
+        const osNames = {
+            'macos': 'macOS Catalina',
+            'windows': 'Windows 8.1',
+            'bios': 'BIOS Setup'
+        };
+        
+        this.playNavSound(1200, 150);
         
         const modal = document.getElementById('exit-modal');
+        const bootMessages = [
+            "Initializing system hardware...",
+            "Loading boot loader...",
+            "Verifying system integrity...",
+            "Starting operating system...",
+            "Welcome to " + osNames[osType]
+        ];
+        
+        let messageIndex = 0;
+        
         modal.innerHTML = `
-            <div style="text-align: center; color: #90ee90; padding: 20px;">
-                <h3>SELECT BOOT DEVICE</h3>
-                <p style="color: #aaa; margin-bottom: 30px;">Choose operating system to launch:</p>
-                
-                <div class="os-selection-grid">
-                    <div class="os-option" data-os="macos">
-                        <div class="os-icon">🖥️</div>
-                        <div class="os-name">macOS Catalina</div>
-                        <div class="os-desc">Apple Desktop Environment</div>
-                        <div class="os-hotkey">[1]</div>
-                    </div>
-                    
-                    <div class="os-option" data-os="windows">
-                        <div class="os-icon">🪟</div>
-                        <div class="os-name">Windows 8.1</div>
-                        <div class="os-desc">Microsoft Metro UI</div>
-                        <div class="os-hotkey">[2]</div>
-                    </div>
-                    
-                    <div class="os-option" data-os="bios">
-                        <div class="os-icon">⚙️</div>
-                        <div class="os-name">Return to BIOS</div>
-                        <div class="os-desc">System Configuration</div>
-                        <div class="os-hotkey">[3]</div>
+            <div style="text-align: center; color: #90ee90; padding: 40px;">
+                <h3>BOOTING ${osNames[osType].toUpperCase()}</h3>
+                <div style="margin: 30px;">
+                    <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
+                        <div id="boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00aa00); transition: width 1.5s;"></div>
                     </div>
                 </div>
-                
-                <div style="margin-top: 40px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333; border-radius: 5px;">
-                    <div style="color: #fff; font-weight: bold; margin-bottom: 10px;">Boot Information</div>
-                    <div style="color: #aaa; font-size: 0.9em;">
-                        Primary Boot Device: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span><br>
-                        Quick Boot: <span style="color: ${this.state.quickBoot ? '#90ee90' : '#ff6666'}">${this.state.quickBoot ? 'Enabled' : 'Disabled'}</span> | 
-                        Boot Delay: <span style="color: #90ee90;">${this.state.bootDelay || 0}s</span>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 30px; color: #666; font-size: 0.9em;">
-                    ↑↓←→ or 1/2/3 : Navigate   Enter : Select   ESC : Cancel
+                <p id="boot-message">${bootMessages[0]}</p>
+                <div style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                    Booting from: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span>
                 </div>
             </div>
         `;
         
-        this.setupOSSelection();
-    } else {
-        // Exit without saving (reboot)
-        this.playNavSound(800, 150);
-        this.reboot();
-    }
-}
-
-setupOSSelection() {
-    const options = document.querySelectorAll('.os-option');
-    let selectedIndex = 0;
-    
-    options[0].classList.add('selected');
-    
-    // Keyboard navigation
-    const keyHandler = (e) => {
-        if (!document.getElementById('exit-modal')) {
-            document.removeEventListener('keydown', keyHandler);
-            return;
-        }
+        // Animate progress bar with messages
+        const progressBar = document.getElementById('boot-progress');
+        const messageElement = document.getElementById('boot-message');
         
-        // Number keys for quick selection
-        if (e.key >= '1' && e.key <= '3') {
-            e.preventDefault();
-            const index = parseInt(e.key) - 1;
-            options.forEach(opt => opt.classList.remove('selected'));
-            options[index].classList.add('selected');
-            selectedIndex = index;
-            this.playNavSound(700, 50);
-            
-            // Auto-select after short delay
+        const updateBootProgress = (progress, message) => {
+            progressBar.style.width = progress + '%';
+            if (message) {
+                messageElement.textContent = message;
+                // Play a subtle sound for each step
+                this.playNavSound(800 + messageIndex * 100, 30);
+                messageIndex++;
+            }
+        };
+        
+        // Simulate boot sequence
+        const bootSequence = [
+            {delay: 200, progress: 15, message: bootMessages[0]},
+            {delay: 500, progress: 35, message: bootMessages[1]},
+            {delay: 800, progress: 60, message: bootMessages[2]},
+            {delay: 1100, progress: 85, message: bootMessages[3]},
+            {delay: 1400, progress: 100, message: bootMessages[4]}
+        ];
+        
+        bootSequence.forEach((step, index) => {
             setTimeout(() => {
-                this.bootToOS(options[index].dataset.os);
-            }, 300);
-            return;
-        }
-        
-        switch(e.key) {
-            case 'ArrowUp':
-            case 'ArrowLeft':
-                e.preventDefault();
-                options[selectedIndex].classList.remove('selected');
-                selectedIndex = (selectedIndex - 1 + options.length) % options.length;
-                options[selectedIndex].classList.add('selected');
-                this.playNavSound(600, 30);
-                break;
-                
-            case 'ArrowDown':
-            case 'ArrowRight':
-                e.preventDefault();
-                options[selectedIndex].classList.remove('selected');
-                selectedIndex = (selectedIndex + 1) % options.length;
-                options[selectedIndex].classList.add('selected');
-                this.playNavSound(600, 30);
-                break;
-                
-            case 'Enter':
-                e.preventDefault();
-                const selectedOS = options[selectedIndex].dataset.os;
-                this.bootToOS(selectedOS);
-                break;
-                
-            case 'Escape':
-                e.preventDefault();
-                this.cancelExitModal();
-                document.removeEventListener('keydown', keyHandler);
-                break;
-                
-            case ' ':
-                e.preventDefault();
-                // Space toggles quick boot preview
-                this.toggleQuickBootPreview();
-                break;
-        }
-    };
-    
-    document.addEventListener('keydown', keyHandler);
-    
-    // Click handlers
-    options.forEach((option, index) => {
-        option.addEventListener('click', () => {
-            options.forEach(opt => opt.classList.remove('selected'));
-            option.classList.add('selected');
-            selectedIndex = index;
-            this.bootToOS(option.dataset.os);
+                updateBootProgress(step.progress, step.message);
+            }, step.delay);
         });
         
-        // Hover effects
-        option.addEventListener('mouseenter', () => {
-            if (!option.classList.contains('selected')) {
-                option.style.transform = 'translateY(-2px)';
-                this.playNavSound(500, 20);
-            }
-        });
-        
-        option.addEventListener('mouseleave', () => {
-            if (!option.classList.contains('selected')) {
-                option.style.transform = '';
-            }
-        });
-    });
-}
-
-toggleQuickBootPreview() {
-    if (!this.state.quickBoot) return;
-    
-    // Show quick boot animation
-    const modal = document.getElementById('exit-modal');
-    const originalContent = modal.innerHTML;
-    
-    modal.innerHTML = `
-        <div style="text-align: center; color: #90ee90; padding: 40px;">
-            <h3>QUICK BOOT ENABLED</h3>
-            <div style="margin: 30px;">
-                <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
-                    <div id="quick-boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00ff00); transition: width 0.5s;"></div>
-                </div>
-            </div>
-            <p>Bypassing boot menu...</p>
-        </div>
-    `;
-    
-    setTimeout(() => {
-        document.getElementById('quick-boot-progress').style.width = '100%';
-    }, 100);
-    
-    setTimeout(() => {
-        // Boot to primary OS (macOS by default)
-        this.bootToOS('macos');
-    }, 600);
-}
-
-bootToOS(osType) {
-    const osURLs = {
-        'macos': 'https://macoswebemulator.vercel.app',
-        'windows': 'https://windows-8-web-os.vercel.app',
-        'bios': null
-    };
-    
-    const osNames = {
-        'macos': 'macOS Catalina',
-        'windows': 'Windows 8.1',
-        'bios': 'BIOS Setup'
-    };
-    
-    this.playNavSound(1200, 150);
-    
-    const modal = document.getElementById('exit-modal');
-    const bootMessages = [
-        "Initializing system hardware...",
-        "Loading boot loader...",
-        "Verifying system integrity...",
-        "Starting operating system...",
-        "Welcome to " + osNames[osType]
-    ];
-    
-    let messageIndex = 0;
-    
-    modal.innerHTML = `
-        <div style="text-align: center; color: #90ee90; padding: 40px;">
-            <h3>BOOTING ${osNames[osType].toUpperCase()}</h3>
-            <div style="margin: 30px;">
-                <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
-                    <div id="boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00aa00); transition: width 1.5s;"></div>
-                </div>
-            </div>
-            <p id="boot-message">${bootMessages[0]}</p>
-            <div style="margin-top: 20px; color: #666; font-size: 0.9em;">
-                Booting from: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span>
-            </div>
-        </div>
-    `;
-    
-    // Animate progress bar with messages
-    const progressBar = document.getElementById('boot-progress');
-    const messageElement = document.getElementById('boot-message');
-    
-    const updateBootProgress = (progress, message) => {
-        progressBar.style.width = progress + '%';
-        if (message) {
-            messageElement.textContent = message;
-            // Play a subtle sound for each step
-            this.playNavSound(800 + messageIndex * 100, 30);
-        }
-    };
-    
-    // Simulate boot sequence
-    const bootSequence = [
-        {delay: 200, progress: 15, message: bootMessages[0]},
-        {delay: 500, progress: 35, message: bootMessages[1]},
-        {delay: 800, progress: 60, message: bootMessages[2]},
-        {delay: 1100, progress: 85, message: bootMessages[3]},
-        {delay: 1400, progress: 100, message: bootMessages[4]}
-    ];
-    
-    bootSequence.forEach((step, index) => {
+        // Redirect after animation
         setTimeout(() => {
-            updateBootProgress(step.progress, step.message);
-        }, step.delay);
-    });
-    
-    // Redirect after animation
-    setTimeout(() => {
-        if (osType === 'bios') {
-            this.cancelExitModal();
-        } else {
-            // Open in new tab
-            window.open(osURLs[osType], '_blank');
-            // Also update browser URL for testing
-            window.history.pushState({}, '', osURLs[osType]);
-            // Show return message
-            modal.innerHTML = `
-                <div style="text-align: center; color: #90ee90; padding: 40px;">
-                    <h3>BOOT COMPLETE</h3>
-                    <div style="font-size: 4em; margin: 30px;">✅</div>
-                    <p>${osNames[osType]} is now running in a new tab.</p>
-                    <div style="margin-top: 30px; color: #aaa; font-size: 0.9em;">
-                        <p>If pop-up was blocked, check your browser settings.</p>
-                        <p>Or manually visit:<br>
-                        <code style="color: #90ee90; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 3px;">${osURLs[osType]}</code></p>
+            if (osType === 'bios') {
+                this.cancelExitModal();
+            } else {
+                // Open in new tab
+                window.open(osURLs[osType], '_blank');
+                // Also update browser URL for testing
+                window.history.pushState({}, '', osURLs[osType]);
+                // Show return message
+                modal.innerHTML = `
+                    <div style="text-align: center; color: #90ee90; padding: 40px;">
+                        <h3>BOOT COMPLETE</h3>
+                        <div style="font-size: 4em; margin: 30px;">✅</div>
+                        <p>${osNames[osType]} is now running in a new tab.</p>
+                        <div style="margin-top: 30px; color: #aaa; font-size: 0.9em;">
+                            <p>If pop-up was blocked, check your browser settings.</p>
+                            <p>Or manually visit:<br>
+                            <code style="color: #90ee90; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 3px;">${osURLs[osType]}</code></p>
+                        </div>
+                        <div style="margin-top: 30px;">
+                            <button onclick="window.BIOSMenu.cancelExitModal()" style="
+                                background: rgba(144, 238, 144, 0.2);
+                                border: 1px solid #90ee90;
+                                color: #90ee90;
+                                padding: 10px 20px;
+                                cursor: pointer;
+                                font-family: 'IBM Plex Mono', monospace;
+                                border-radius: 3px;
+                            ">Return to BIOS</button>
+                        </div>
                     </div>
-                    <div style="margin-top: 30px;">
-                        <button onclick="window.BIOSMenu.cancelExitModal()" style="
-                            background: rgba(144, 238, 144, 0.2);
-                            border: 1px solid #90ee90;
-                            color: #90ee90;
-                            padding: 10px 20px;
-                            cursor: pointer;
-                            font-family: 'IBM Plex Mono', monospace;
-                            border-radius: 3px;
-                        ">Return to BIOS</button>
-                    </div>
-                </div>
-            `;
-        }
-    }, 1600);
-}
+                `;
+            }
+        }, 1600);
+    }
 
     cancelExitModal() {
         this.exitModalActive = false;
@@ -1367,7 +2346,14 @@ bootToOS(osType) {
             quickBoot: this.state.quickBoot,
             bootNumLock: this.state.bootNumLock,
             bootDelay: this.state.bootDelay,
-            securityLevel: this.state.securityLevel
+            securityLevel: this.state.securityLevel,
+            supervisorPassword: this.state.supervisorPassword,
+            userPassword: this.state.userPassword,
+            biosFeatures: this.state.biosFeatures,
+            chipsetFeatures: this.state.chipsetFeatures,
+            powerManagement: this.state.powerManagement,
+            pnpConfiguration: this.state.pnpConfiguration,
+            peripherals: this.state.peripherals
         }));
         
         this.showToast('Configuration saved to CMOS');
@@ -1380,11 +2366,18 @@ bootToOS(osType) {
                 const state = JSON.parse(saved);
                 this.state.date = new Date(state.date);
                 this.state.time = new Date(state.time);
-                this.state.bootOrder = state.bootOrder || ['Hard Disk', 'CD-ROM', 'Floppy', 'Network'];
+                this.state.bootOrder = state.bootOrder || ['Hard Disk', 'CD-ROM', 'USB', 'Network'];
                 this.state.quickBoot = state.quickBoot !== undefined ? state.quickBoot : true;
                 this.state.bootNumLock = state.bootNumLock !== undefined ? state.bootNumLock : true;
                 this.state.bootDelay = state.bootDelay || 0;
                 this.state.securityLevel = state.securityLevel || 'None';
+                this.state.supervisorPassword = state.supervisorPassword || '';
+                this.state.userPassword = state.userPassword || '';
+                this.state.biosFeatures = state.biosFeatures || this.state.biosFeatures;
+                this.state.chipsetFeatures = state.chipsetFeatures || this.state.chipsetFeatures;
+                this.state.powerManagement = state.powerManagement || this.state.powerManagement;
+                this.state.pnpConfiguration = state.pnpConfiguration || this.state.pnpConfiguration;
+                this.state.peripherals = state.peripherals || this.state.peripherals;
             } catch (e) {
                 console.log('Error loading saved state:', e);
             }
@@ -1416,7 +2409,7 @@ bootToOS(osType) {
         }, 2300);
     }
 
-    // Hardware Monitor methods (simplified version)
+    // Hardware Monitor methods
     initHardwareMonitor() {
         this.hardwareMonitor = {
             state: {
@@ -1428,6 +2421,7 @@ bootToOS(osType) {
             canvases: {},
             gauges: {},
             animationId: null,
+            loadHistory: [],
             
             init: function() {
                 this.initGauges();
@@ -1452,7 +2446,6 @@ bootToOS(osType) {
             },
             
             drawGauge: function(gaugeId) {
-                // Simplified gauge drawing
                 const gauge = this.gauges[gaugeId];
                 if (!gauge) return;
                 
@@ -1472,27 +2465,125 @@ bootToOS(osType) {
                 ctx.fillStyle = 'rgba(20, 20, 30, 0.8)';
                 ctx.fill();
                 
-                // Update display values
+                // Draw gauge arc
                 const value = this.state[gaugeId.replace('-', '')];
+                const maxValues = {
+                    'cpu-temp': 100,
+                    'cpu-voltage': 1.5,
+                    'fan-speed': 3000,
+                    'cpu-load': 100
+                };
+                
+                const maxValue = maxValues[gaugeId] || 100;
+                const angle = (value / maxValue) * Math.PI * 2;
+                
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius - 5, 0, angle);
+                ctx.lineWidth = 8;
+                
+                // Color based on value
+                let color = '#90ee90';
                 if (gaugeId === 'cpu-temp') {
-                    document.getElementById('value-cpu-temp').textContent = `${value}°C`;
+                    if (value > 80) color = '#ff4444';
+                    else if (value > 60) color = '#ffaa00';
+                } else if (gaugeId === 'cpu-voltage') {
+                    if (value > 1.4) color = '#ff4444';
+                    else if (value > 1.3) color = '#ffaa00';
+                }
+                
+                ctx.strokeStyle = color;
+                ctx.stroke();
+                
+                // Update display values
+                if (gaugeId === 'cpu-temp') {
+                    document.getElementById('value-cpu-temp').textContent = `${Math.round(value)}°C`;
+                    document.getElementById('status-cpu-temp').textContent = 
+                        value > 80 ? 'Critical' : value > 60 ? 'High' : 'Normal';
+                    document.getElementById('status-cpu-temp').style.color = 
+                        value > 80 ? '#ff4444' : value > 60 ? '#ffaa00' : '#90ee90';
                 } else if (gaugeId === 'cpu-voltage') {
                     document.getElementById('value-cpu-voltage').textContent = `${value.toFixed(2)}V`;
+                    document.getElementById('status-cpu-voltage').textContent = 
+                        value > 1.4 ? 'High' : value > 1.3 ? 'Moderate' : 'Optimal';
                 } else if (gaugeId === 'fan-speed') {
-                    document.getElementById('value-fan-speed').textContent = `${value} RPM`;
+                    document.getElementById('value-fan-speed').textContent = `${Math.round(value)} RPM`;
+                    document.getElementById('status-fan-speed').textContent = 
+                        value > 2000 ? 'High' : value > 1500 ? 'Medium' : 'Low';
                 } else if (gaugeId === 'cpu-load') {
-                    document.getElementById('value-cpu-load').textContent = `${value}%`;
+                    document.getElementById('value-cpu-load').textContent = `${Math.round(value)}%`;
+                    document.getElementById('status-cpu-load').textContent = 
+                        value > 80 ? 'High' : value > 50 ? 'Medium' : 'Idle';
                 }
             },
             
             initLoadGraph: function() {
-                // Simple load graph initialization
                 const canvas = document.getElementById('load-graph');
                 if (!canvas) return;
                 
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = 'rgba(0, 20, 0, 0.3)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Initialize load history
+                for (let i = 0; i < 60; i++) {
+                    this.loadHistory.push(15);
+                }
+            },
+            
+            drawLoadGraph: function() {
+                const canvas = document.getElementById('load-graph');
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                
+                // Clear graph
+                ctx.fillStyle = 'rgba(0, 20, 0, 0.3)';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw grid
+                ctx.strokeStyle = 'rgba(0, 80, 0, 0.3)';
+                ctx.lineWidth = 1;
+                
+                // Horizontal lines
+                for (let i = 0; i <= 5; i++) {
+                    const y = i * (height / 5);
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+                
+                // Draw load line
+                ctx.beginPath();
+                ctx.strokeStyle = '#90ee90';
+                ctx.lineWidth = 2;
+                
+                const segmentWidth = width / (this.loadHistory.length - 1);
+                
+                this.loadHistory.forEach((load, index) => {
+                    const x = index * segmentWidth;
+                    const y = height - (load / 100) * height;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+                
+                // Draw current load marker
+                const currentLoad = this.loadHistory[this.loadHistory.length - 1];
+                const lastX = width;
+                const lastY = height - (currentLoad / 100) * height;
+                
+                ctx.beginPath();
+                ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#90ee90';
+                ctx.fill();
             },
             
             startSimulation: function() {
@@ -1501,13 +2592,35 @@ bootToOS(osType) {
             
             updateSimulation: function() {
                 // Simulate random fluctuations
-                this.state.cpuLoad = 15 + Math.sin(Date.now() / 2000) * 10 + Math.random() * 5;
-                this.state.cpuTemp = 45 + (this.state.cpuLoad - 15) * 0.3;
-                this.state.fanSpeed = 1200 + (this.state.cpuTemp - 45) * 20;
-                this.state.cpuVoltage = 1.2 + Math.sin(Date.now() / 3000) * 0.05;
+                const time = Date.now() / 1000;
+                this.state.cpuLoad = 15 + Math.sin(time * 0.5) * 10 + Math.sin(time * 2) * 5 + Math.random() * 3;
+                this.state.cpuLoad = Math.max(0, Math.min(100, this.state.cpuLoad));
+                
+                this.state.cpuTemp = 45 + (this.state.cpuLoad - 15) * 0.3 + Math.sin(time * 0.3) * 2;
+                this.state.cpuTemp = Math.max(30, Math.min(100, this.state.cpuTemp));
+                
+                this.state.fanSpeed = 1200 + (this.state.cpuTemp - 45) * 20 + Math.sin(time * 0.4) * 50;
+                this.state.fanSpeed = Math.max(800, Math.min(3000, this.state.fanSpeed));
+                
+                this.state.cpuVoltage = 1.2 + Math.sin(time * 0.2) * 0.05 + (this.state.cpuLoad / 100) * 0.1;
+                this.state.cpuVoltage = Math.max(1.1, Math.min(1.5, this.state.cpuVoltage));
+                
+                // Update load history
+                this.loadHistory.push(this.state.cpuLoad);
+                if (this.loadHistory.length > 60) {
+                    this.loadHistory.shift();
+                }
+                
+                // Update voltage displays
+                document.getElementById('voltage-12v').textContent = '12.00V';
+                document.getElementById('voltage-5v').textContent = '5.00V';
+                document.getElementById('voltage-3v').textContent = '3.30V';
                 
                 // Update all gauges
                 Object.keys(this.gauges).forEach(id => this.drawGauge(id));
+                
+                // Update load graph
+                this.drawLoadGraph();
                 
                 // Update time
                 document.getElementById('info-time').textContent = new Date().toLocaleTimeString('en-US', { 
@@ -1528,20 +2641,48 @@ bootToOS(osType) {
                     fanSpeed: 1200
                 };
                 
+                this.loadHistory = [];
+                for (let i = 0; i < 60; i++) {
+                    this.loadHistory.push(15);
+                }
+                
                 Object.keys(this.gauges).forEach(id => this.drawGauge(id));
+                this.drawLoadGraph();
             },
             
             startStressTest: function() {
+                // Create warning overlay
+                const warning = document.createElement('div');
+                warning.className = 'stress-warning';
+                warning.innerHTML = `
+                    <h3>STRESS TEST ACTIVE</h3>
+                    <p>CPU under maximum load for 10 seconds</p>
+                    <p style="font-size: 0.9em; color: #ffaa00;">Monitoring system temperatures...</p>
+                `;
+                document.getElementById('page-hardware-monitor').appendChild(warning);
+                
                 const originalLoad = this.state.cpuLoad;
                 const interval = setInterval(() => {
-                    this.state.cpuLoad = Math.min(100, this.state.cpuLoad + 10);
-                    this.state.cpuTemp = Math.min(95, this.state.cpuTemp + 5);
-                    this.state.fanSpeed = Math.min(3000, this.state.fanSpeed + 200);
+                    this.state.cpuLoad = Math.min(100, this.state.cpuLoad + 8);
+                    this.state.cpuTemp = Math.min(95, this.state.cpuTemp + 4);
+                    this.state.fanSpeed = Math.min(3000, this.state.fanSpeed + 150);
                     
                     Object.keys(this.gauges).forEach(id => this.drawGauge(id));
-                }, 500);
+                    
+                    // Update load history
+                    this.loadHistory.push(this.state.cpuLoad);
+                    if (this.loadHistory.length > 60) {
+                        this.loadHistory.shift();
+                    }
+                    this.drawLoadGraph();
+                }, 200);
                 
-                setTimeout(() => clearInterval(interval), 10000);
+                setTimeout(() => {
+                    clearInterval(interval);
+                    if (warning.parentNode) {
+                        warning.parentNode.removeChild(warning);
+                    }
+                }, 10000);
             },
             
             stop: function() {
