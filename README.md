@@ -1,5 +1,5 @@
 # phantom_bios
-don't worry bruhh ,, this project is still under a coocking condition so you vetter wait for it ,,,
+don't worry bruhh ,, this project is still under a coocking condition so you better wait for it ,,,
 so what this project does , 
 it's just a normal computer bios setup, but combined with hardware utilities, and 
 the other thing is it's made for booting multiple operating systems,,, 
