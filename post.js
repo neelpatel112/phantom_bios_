@@ -1,4 +1,4 @@
-// post.js - Power-On Self-Test Simulation
+// post.js - Enhanced POST Sequence
 
 class POSTSequence {
     constructor() {
@@ -6,107 +6,121 @@ class POSTSequence {
         this.memoryCounterEl = document.getElementById('memory-counter');
         this.currentLine = 0;
         this.memoryKB = 0;
-        this.totalMemory = 32768; // 32MB for retro feel
-        this.speed = 30; // ms between lines
+        this.totalMemory = 65536; // 64MB
+        this.speed = 25;
         this.sequence = this.getPOSTSequence();
         this.beepSound = document.getElementById('post-beep');
     }
 
     getPOSTSequence() {
         return [
-            { text: "PhoenixBIOS 4.0 Release 6.0", delay: 200 },
-            { text: "Energy Star Ally", delay: 100 },
-            { text: "Copyright 1985-2003 Phoenix Technologies Ltd.", delay: 150 },
-            { text: "All Rights Reserved", delay: 100 },
-            { text: "", delay: 200 }, // Empty line for spacing
+            { text: "PHANTOM BIOS v2.0", delay: 250 },
+            { text: "Copyright (C) 2026 Phantom Systems", delay: 180 },
+            { text: "All Rights Reserved", delay: 120 },
+            { text: "", delay: 200 },
             
-            // CPU Detection
-            { text: "Detecting Primary Master... ST310211A", delay: 120 },
-            { text: "Detecting Primary Slave... None", delay: 80 },
-            { text: "Detecting Secondary Master... CD-ROM DRIVE", delay: 100 },
-            { text: "Detecting Secondary Slave... None", delay: 80 },
+            { text: "System Initialization...", delay: 150 },
+            { text: "Testing RAM: ", delay: 200, special: "memory_test" },
             
-            // CPU Info
-            { text: "Main Processor: Intel Pentium III 1000MHz", delay: 150 },
-            { text: "CPU Clock: 1000MHz", delay: 80 },
-            { text: "CPU ID: 0F24 Patch ID: 08", delay: 80 },
+            { text: "CPU: Intel Pentium III 1000MHz (100.0x10.0)", delay: 120 },
+            { text: "CPU ID: 0F24  Stepping: 08", delay: 100 },
+            { text: "L1 Cache: 32KB, L2 Cache: 256KB", delay: 100 },
             
-            // Memory Test Start
-            { text: "Memory Test: ", delay: 200, special: "memory_test" },
+            { text: "Detecting IDE Drives...", delay: 150 },
+            { text: "Primary Master: ST310211A (10GB)", delay: 80, status: "ok" },
+            { text: "Primary Slave: None", delay: 60, status: "ok" },
+            { text: "Secondary Master: CD-ROM Drive", delay: 80, status: "ok" },
+            { text: "Secondary Slave: None", delay: 60, status: "ok" },
             
-            // Hardware
-            { text: "Award Plug and Play BIOS Extension v1.0A", delay: 120 },
-            { text: "Initialize Plug and Play Cards...", delay: 100 },
+            { text: "Initializing USB Controllers...", delay: 150 },
+            { text: "USB Controller: OHCI", delay: 80, status: "ok" },
+            { text: "4 USB Ports Available", delay: 60, status: "ok" },
+            
+            { text: "Detecting Serial Ports...", delay: 120 },
+            { text: "COM1: 3F8 IRQ4", delay: 60, status: "ok" },
+            { text: "COM2: 2F8 IRQ3", delay: 60, status: "ok" },
+            
+            { text: "Detecting Parallel Port...", delay: 120 },
+            { text: "LPT1: 378 IRQ7", delay: 60, status: "ok" },
+            
+            { text: "Plug and Play BIOS Extension v1.0A", delay: 100 },
             { text: "PNP Init Completed", delay: 80, status: "ok" },
             
-            // Final Checks
-            { text: "Detecting Serial Ports...", delay: 100 },
-            { text: "Serial Port 1: 3F8", delay: 60, status: "ok" },
-            { text: "Serial Port 2: 2F8", delay: 60, status: "ok" },
-            { text: "Detecting Parallel Ports...", delay: 100 },
-            { text: "Parallel Port: 378", delay: 60, status: "ok" },
+            { text: "Checking NVRAM...", delay: 150 },
+            { text: "CMOS Battery: Good", delay: 80, status: "ok" },
+            { text: "NVRAM Checksum: Verified", delay: 80, status: "ok" },
             
-            // Boot Start
-            { text: "Searching for Boot Record from IDE-0...", delay: 300 },
-            { text: "Boot from CD-ROM:", delay: 200 },
-            { text: "Press any key to boot from CD-ROM...", delay: 250, blink: true }
+            { text: "Building DMI Pool...", delay: 200 },
+            { text: "DMI Pool: 256KB", delay: 80, status: "ok" },
+            
+            { text: "ACPI Enabled", delay: 100 },
+            { text: "Enabling ACPI Mode...", delay: 150 },
+            { text: "ACPI Tables Installed", delay: 80, status: "ok" },
+            
+            { text: "Initializing Video...", delay: 200 },
+            { text: "VGA BIOS Detected", delay: 100, status: "ok" },
+            { text: "Video Memory: 8MB", delay: 80, status: "ok" },
+            
+            { text: "System Configuration Valid", delay: 150, status: "ok" },
+            { text: "", delay: 200 },
+            
+            { text: "Boot Device Priority:", delay: 150 },
+            { text: "1. Hard Disk", delay: 100 },
+            { text: "2. CD-ROM Drive", delay: 100 },
+            { text: "3. Network", delay: 100 },
+            { text: "4. USB Device", delay: 100 },
+            
+            { text: "", delay: 300 },
+            { text: "Press DEL to enter SETUP, F12 for Boot Menu", delay: 250, blink: true }
         ];
     }
 
     async playBeep(frequency = 800, duration = 100) {
-        if (!this.beepSound || !this.beepSound.play) return;
-        
         try {
-            // Create Web Audio beep if MP3 not available
-            if (this.beepSound.src === "") {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                
-                oscillator.frequency.value = frequency;
-                oscillator.type = 'square';
-                
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
-                
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + duration/1000);
-            } else {
-                this.beepSound.currentTime = 0;
-                await this.beepSound.play();
-            }
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'square';
+            
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration/1000);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration/1000);
         } catch (e) {
-            console.log("Audio not supported:", e);
+            console.log("Audio context not available");
         }
     }
 
     addLine(text, status = null, blink = false) {
         const line = document.createElement('div');
         line.className = 'post-line';
-        line.innerHTML = text;
         
+        let html = text;
         if (status === 'ok') {
-            line.innerHTML += `<span class="status-ok"> [OK]</span>`;
+            html += `<span class="status-ok"> [OK]</span>`;
         } else if (status === 'fail') {
-            line.innerHTML += `<span class="status-fail"> [FAIL]</span>`;
+            html += `<span class="status-fail"> [FAIL]</span>`;
         }
+        
+        line.innerHTML = html;
         
         if (blink) {
             line.style.animation = 'typeIn 0.3s forwards, blink 1s infinite';
         }
         
         this.messagesEl.appendChild(line);
-        
-        // Auto-scroll to bottom
         this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     }
 
     updateMemoryCounter() {
         if (this.memoryKB < this.totalMemory) {
-            this.memoryKB += 64; // Increment by 64KB each step
+            this.memoryKB += 128;
             if (this.memoryKB > this.totalMemory) {
                 this.memoryKB = this.totalMemory;
             }
@@ -115,30 +129,24 @@ class POSTSequence {
     }
 
     async start() {
-        // Initial beep
-        await this.playBeep(1200, 100);
+        await this.playBeep(1200, 120);
         
         for (const step of this.sequence) {
             await this.delay(step.delay || this.speed);
             
             if (step.special === 'memory_test') {
-                // Start memory counter animation
                 this.startMemoryCounter();
                 this.addLine(step.text);
             } else {
                 this.addLine(step.text, step.status, step.blink);
                 
-                // Play beep for certain events
                 if (step.status === 'ok') {
-                    this.playBeep(1000, 50);
-                } else if (step.status === 'fail') {
-                    this.playBeep(400, 200);
+                    await this.playBeep(1000, 50);
                 }
             }
         }
         
-        // POST Complete - Ready for BIOS menu
-        await this.delay(1000);
+        await this.delay(800);
         this.onPOSTComplete();
     }
 
@@ -147,10 +155,10 @@ class POSTSequence {
             this.updateMemoryCounter();
             if (this.memoryKB >= this.totalMemory) {
                 clearInterval(interval);
-                this.addLine("Memory Test Completed", "ok");
-                this.playBeep(1000, 50);
+                this.addLine("RAM Test: 65536K OK", "ok");
+                this.playBeep(1200, 80);
             }
-        }, 30);
+        }, 20);
     }
 
     delay(ms) {
@@ -158,37 +166,78 @@ class POSTSequence {
     }
 
     onPOSTComplete() {
-        // Trigger transition to BIOS menu
         document.getElementById('post-sequence').classList.add('hidden');
         document.getElementById('bios-menu').classList.remove('hidden');
         
-        // Initialize BIOS menu system (Step 2)
         if (window.BIOSMenu) {
             window.BIOSMenu.init();
         }
         
-        // Play completion beep
         this.playBeep(1200, 150);
     }
 }
 
-// Keyboard listener for BIOS entry
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    // DEL key to enter setup
     if (e.key === 'Delete' || e.keyCode === 46) {
         e.preventDefault();
         const post = new POSTSequence();
-        post.onPOSTComplete(); // Skip to BIOS directly for testing
+        post.onPOSTComplete();
     }
     
-    // F12 for boot menu
     if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
-        alert('Boot Menu: Would show boot devices here');
+        // Simulate boot menu
+        const modal = document.createElement('div');
+        modal.className = 'exit-modal';
+        modal.innerHTML = `
+            <div style="text-align: center; color: #90ee90; padding: 30px;">
+                <h3>BOOT MENU</h3>
+                <p style="color: #aaa; margin: 20px 0;">Select boot device:</p>
+                <div style="margin: 20px;">
+                    <div class="boot-device-item" style="cursor: pointer; margin: 10px 0;" onclick="window.open('https://macoswebemulator.vercel.app','_blank')">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 1.5em;">💾</div>
+                            <div>
+                                <div style="color: #fff; font-weight: bold;">Hard Disk (macOS)</div>
+                                <div style="color: #aaa; font-size: 0.9em;">ST310211A</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="boot-device-item" style="cursor: pointer; margin: 10px 0;" onclick="window.open('https://windows-8-web-os.vercel.app','_blank')">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 1.5em;">💿</div>
+                            <div>
+                                <div style="color: #fff; font-weight: bold;">CD-ROM (Windows 8)</div>
+                                <div style="color: #aaa; font-size: 0.9em;">ATAPI CD-ROM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 30px; color: #666; font-size: 0.9em;">
+                    Press ESC to cancel
+                </div>
+            </div>
+        `;
+        document.getElementById('bios-screen').appendChild(modal);
+        
+        const removeModal = () => {
+            if (modal.parentNode) modal.parentNode.removeChild(modal);
+            document.removeEventListener('keydown', escHandler);
+        };
+        
+        const escHandler = (e) => {
+            if (e.key === 'Escape') removeModal();
+        };
+        
+        document.addEventListener('keydown', escHandler);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) removeModal();
+        });
     }
 });
 
-// Start POST sequence when page loads
+// Start POST on load
 window.addEventListener('load', () => {
     const post = new POSTSequence();
     post.start();
