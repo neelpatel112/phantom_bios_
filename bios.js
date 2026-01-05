@@ -1029,36 +1029,291 @@ class BIOSMenu {
     }
 
     confirmExit(saveChanges) {
-        if (saveChanges) {
-            this.saveState();
-            this.playNavSound(1000, 200);
+    if (saveChanges) {
+        this.saveState();
+        this.playNavSound(1000, 200);
+        
+        const modal = document.getElementById('exit-modal');
+        modal.innerHTML = `
+            <div style="text-align: center; color: #90ee90; padding: 20px;">
+                <h3>SELECT BOOT DEVICE</h3>
+                <p style="color: #aaa; margin-bottom: 30px;">Choose operating system to launch:</p>
+                
+                <div class="os-selection-grid">
+                    <div class="os-option" data-os="macos">
+                        <div class="os-icon">🖥️</div>
+                        <div class="os-name">macOS Catalina</div>
+                        <div class="os-desc">Apple Desktop Environment</div>
+                        <div class="os-hotkey">[1]</div>
+                    </div>
+                    
+                    <div class="os-option" data-os="windows">
+                        <div class="os-icon">🪟</div>
+                        <div class="os-name">Windows 8.1</div>
+                        <div class="os-desc">Microsoft Metro UI</div>
+                        <div class="os-hotkey">[2]</div>
+                    </div>
+                    
+                    <div class="os-option" data-os="bios">
+                        <div class="os-icon">⚙️</div>
+                        <div class="os-name">Return to BIOS</div>
+                        <div class="os-desc">System Configuration</div>
+                        <div class="os-hotkey">[3]</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 15px; background: rgba(0, 30, 0, 0.3); border: 1px solid #333; border-radius: 5px;">
+                    <div style="color: #fff; font-weight: bold; margin-bottom: 10px;">Boot Information</div>
+                    <div style="color: #aaa; font-size: 0.9em;">
+                        Primary Boot Device: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span><br>
+                        Quick Boot: <span style="color: ${this.state.quickBoot ? '#90ee90' : '#ff6666'}">${this.state.quickBoot ? 'Enabled' : 'Disabled'}</span> | 
+                        Boot Delay: <span style="color: #90ee90;">${this.state.bootDelay || 0}s</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px; color: #666; font-size: 0.9em;">
+                    ↑↓←→ or 1/2/3 : Navigate   Enter : Select   ESC : Cancel
+                </div>
+            </div>
+        `;
+        
+        this.setupOSSelection();
+    } else {
+        // Exit without saving (reboot)
+        this.playNavSound(800, 150);
+        this.reboot();
+    }
+}
+
+setupOSSelection() {
+    const options = document.querySelectorAll('.os-option');
+    let selectedIndex = 0;
+    
+    options[0].classList.add('selected');
+    
+    // Keyboard navigation
+    const keyHandler = (e) => {
+        if (!document.getElementById('exit-modal')) {
+            document.removeEventListener('keydown', keyHandler);
+            return;
+        }
+        
+        // Number keys for quick selection
+        if (e.key >= '1' && e.key <= '3') {
+            e.preventDefault();
+            const index = parseInt(e.key) - 1;
+            options.forEach(opt => opt.classList.remove('selected'));
+            options[index].classList.add('selected');
+            selectedIndex = index;
+            this.playNavSound(700, 50);
             
-            const modal = document.getElementById('exit-modal');
+            // Auto-select after short delay
+            setTimeout(() => {
+                this.bootToOS(options[index].dataset.os);
+            }, 300);
+            return;
+        }
+        
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'ArrowLeft':
+                e.preventDefault();
+                options[selectedIndex].classList.remove('selected');
+                selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+                options[selectedIndex].classList.add('selected');
+                this.playNavSound(600, 30);
+                break;
+                
+            case 'ArrowDown':
+            case 'ArrowRight':
+                e.preventDefault();
+                options[selectedIndex].classList.remove('selected');
+                selectedIndex = (selectedIndex + 1) % options.length;
+                options[selectedIndex].classList.add('selected');
+                this.playNavSound(600, 30);
+                break;
+                
+            case 'Enter':
+                e.preventDefault();
+                const selectedOS = options[selectedIndex].dataset.os;
+                this.bootToOS(selectedOS);
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.cancelExitModal();
+                document.removeEventListener('keydown', keyHandler);
+                break;
+                
+            case ' ':
+                e.preventDefault();
+                // Space toggles quick boot preview
+                this.toggleQuickBootPreview();
+                break;
+        }
+    };
+    
+    document.addEventListener('keydown', keyHandler);
+    
+    // Click handlers
+    options.forEach((option, index) => {
+        option.addEventListener('click', () => {
+            options.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            selectedIndex = index;
+            this.bootToOS(option.dataset.os);
+        });
+        
+        // Hover effects
+        option.addEventListener('mouseenter', () => {
+            if (!option.classList.contains('selected')) {
+                option.style.transform = 'translateY(-2px)';
+                this.playNavSound(500, 20);
+            }
+        });
+        
+        option.addEventListener('mouseleave', () => {
+            if (!option.classList.contains('selected')) {
+                option.style.transform = '';
+            }
+        });
+    });
+}
+
+toggleQuickBootPreview() {
+    if (!this.state.quickBoot) return;
+    
+    // Show quick boot animation
+    const modal = document.getElementById('exit-modal');
+    const originalContent = modal.innerHTML;
+    
+    modal.innerHTML = `
+        <div style="text-align: center; color: #90ee90; padding: 40px;">
+            <h3>QUICK BOOT ENABLED</h3>
+            <div style="margin: 30px;">
+                <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
+                    <div id="quick-boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00ff00); transition: width 0.5s;"></div>
+                </div>
+            </div>
+            <p>Bypassing boot menu...</p>
+        </div>
+    `;
+    
+    setTimeout(() => {
+        document.getElementById('quick-boot-progress').style.width = '100%';
+    }, 100);
+    
+    setTimeout(() => {
+        // Boot to primary OS (macOS by default)
+        this.bootToOS('macos');
+    }, 600);
+}
+
+bootToOS(osType) {
+    const osURLs = {
+        'macos': 'https://macoswebemulator.vercel.app',
+        'windows': 'https://windows-8-web-os.vercel.app',
+        'bios': null
+    };
+    
+    const osNames = {
+        'macos': 'macOS Catalina',
+        'windows': 'Windows 8.1',
+        'bios': 'BIOS Setup'
+    };
+    
+    this.playNavSound(1200, 150);
+    
+    const modal = document.getElementById('exit-modal');
+    const bootMessages = [
+        "Initializing system hardware...",
+        "Loading boot loader...",
+        "Verifying system integrity...",
+        "Starting operating system...",
+        "Welcome to " + osNames[osType]
+    ];
+    
+    let messageIndex = 0;
+    
+    modal.innerHTML = `
+        <div style="text-align: center; color: #90ee90; padding: 40px;">
+            <h3>BOOTING ${osNames[osType].toUpperCase()}</h3>
+            <div style="margin: 30px;">
+                <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333; border-radius: 10px; overflow: hidden;">
+                    <div id="boot-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004400, #00aa00); transition: width 1.5s;"></div>
+                </div>
+            </div>
+            <p id="boot-message">${bootMessages[0]}</p>
+            <div style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                Booting from: <span style="color: #90ee90;">${this.state.bootOrder[0] || 'Hard Disk'}</span>
+            </div>
+        </div>
+    `;
+    
+    // Animate progress bar with messages
+    const progressBar = document.getElementById('boot-progress');
+    const messageElement = document.getElementById('boot-message');
+    
+    const updateBootProgress = (progress, message) => {
+        progressBar.style.width = progress + '%';
+        if (message) {
+            messageElement.textContent = message;
+            // Play a subtle sound for each step
+            this.playNavSound(800 + messageIndex * 100, 30);
+        }
+    };
+    
+    // Simulate boot sequence
+    const bootSequence = [
+        {delay: 200, progress: 15, message: bootMessages[0]},
+        {delay: 500, progress: 35, message: bootMessages[1]},
+        {delay: 800, progress: 60, message: bootMessages[2]},
+        {delay: 1100, progress: 85, message: bootMessages[3]},
+        {delay: 1400, progress: 100, message: bootMessages[4]}
+    ];
+    
+    bootSequence.forEach((step, index) => {
+        setTimeout(() => {
+            updateBootProgress(step.progress, step.message);
+        }, step.delay);
+    });
+    
+    // Redirect after animation
+    setTimeout(() => {
+        if (osType === 'bios') {
+            this.cancelExitModal();
+        } else {
+            // Open in new tab
+            window.open(osURLs[osType], '_blank');
+            // Also update browser URL for testing
+            window.history.pushState({}, '', osURLs[osType]);
+            // Show return message
             modal.innerHTML = `
                 <div style="text-align: center; color: #90ee90; padding: 40px;">
-                    <h3>SAVING CONFIGURATION...</h3>
-                    <div style="margin: 20px;">
-                        <div style="width: 100%; height: 20px; background: #222; border: 1px solid #333;">
-                            <div id="save-progress" style="width: 0%; height: 100%; background: #90ee90; transition: width 2s;"></div>
-                        </div>
+                    <h3>BOOT COMPLETE</h3>
+                    <div style="font-size: 4em; margin: 30px;">✅</div>
+                    <p>${osNames[osType]} is now running in a new tab.</p>
+                    <div style="margin-top: 30px; color: #aaa; font-size: 0.9em;">
+                        <p>If pop-up was blocked, check your browser settings.</p>
+                        <p>Or manually visit:<br>
+                        <code style="color: #90ee90; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 3px;">${osURLs[osType]}</code></p>
                     </div>
-                    <p>DO NOT POWER OFF YOUR COMPUTER!</p>
+                    <div style="margin-top: 30px;">
+                        <button onclick="window.BIOSMenu.cancelExitModal()" style="
+                            background: rgba(144, 238, 144, 0.2);
+                            border: 1px solid #90ee90;
+                            color: #90ee90;
+                            padding: 10px 20px;
+                            cursor: pointer;
+                            font-family: 'IBM Plex Mono', monospace;
+                            border-radius: 3px;
+                        ">Return to BIOS</button>
+                    </div>
                 </div>
             `;
-            
-            setTimeout(() => {
-                document.getElementById('save-progress').style.width = '100%';
-            }, 100);
-            
-            setTimeout(() => {
-                this.reboot();
-            }, 2500);
-            
-        } else {
-            this.playNavSound(800, 150);
-            this.reboot();
         }
-    }
+    }, 1600);
+}
 
     cancelExitModal() {
         this.exitModalActive = false;
